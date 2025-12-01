@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "ESPs")(type "Legacy")(uri "${KIPRJMOD}/libs/ESP8266/ESP8266.lib")(options "")(descr ""))
+  (lib (name "DFPlayer")(type "KiCad")(uri "${KIPRJMOD}/libs/DFPlayer/DFR0299.kicad_sym")(options "")(descr ""))
+)

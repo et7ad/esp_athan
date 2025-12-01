@@ -1,0 +1,1173 @@
+substitutions:
+  current_version: "1"
+
+esphome:
+  name: athan
+  friendly_name: athan
+  on_boot:
+    then:
+      - lambda: |-
+          ESP_LOGI("tz", "Applying saved timezone on boot: '%s'", id(selected_location_tz).c_str());
+          id(sntp_time).set_timezone(id(selected_location_tz).c_str());
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: ui_next
+              - binary_sensor.is_on: ui_select
+          then:
+            - logger.log: "on resetting wifi"
+            - wait_until:
+                timeout: 5min
+                condition:
+                  wifi.connected:
+            - lambda: |-
+                wifi::global_wifi_component->clear_sta();
+                wifi::global_wifi_component->save_wifi_sta("", "");
+            - light.turn_off: builtin_led
+            - delay: 1s
+            - light.turn_on: builtin_led
+            - delay: .5s
+            - light.turn_off: builtin_led
+            - delay: 1s
+            - light.turn_on: builtin_led
+            - delay: .5s
+            - light.turn_off: builtin_led
+            - logger.log: "resetting"
+            - switch.turn_on: _restart
+      # # # for testing with RPI:
+      # - output.turn_off: gpio0_output
+      # - delay: 200ms
+      # - output.turn_on: gpio0_output 
+      - delay: 2s
+      - script.execute: update_display
+      - lambda: |-
+          int vol = (id(volume_level) * 30 + 50) / 100;
+          if (vol < 0) vol = 0; if (vol > 30) vol = 30;
+          id(dfp).set_volume(vol);
+          ESP_LOGI("boot", "DFPlayer volume initialized to %d (from %d%%)", vol, id(volume_level));
+      - light.turn_on: builtin_led
+      - delay: 500ms
+      - light.turn_off: builtin_led
+      - delay: 500ms
+      - light.turn_on: builtin_led
+      - delay: 500ms
+      - light.turn_off: builtin_led
+
+
+esp8266:
+  board: d1_mini
+
+logger:
+  level: DEBUG
+  baud_rate: 0
+
+api:
+  reboot_timeout: 0s
+  encryption:
+    key: "jAOYf5QQGoONCqGQnC7fwPhSeb/ZTUTlawp1Lvu63ZI="
+
+# web_server:
+
+ota:
+  - platform: esphome
+    password: "016f3e8b522050971c70fa58dd26c640"
+  - platform: http_request
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "AthanFallbackHotspot"
+    password: "espAthan404"
+    ap_timeout: 2min
+  on_connect:
+    then:
+      - logger.log: "WiFi connected!"
+      - wait_until:
+          timeout: 8s
+          condition:
+            lambda: 'return id(sntp_time).now().is_valid();'
+      - script.execute: refresh_prayer_times_if_needed
+
+captive_portal:
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+
+uart:
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 9600
+
+dfplayer:
+  id: dfp
+
+binary_sensor:
+  - platform: gpio
+    name: "ui_next"
+    id: "ui_next"
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(ui_last_activity) = millis();
+            // If not in menu, act as a silence button
+            if (id(ui_mode) == 0) {
+              ESP_LOGI("ui","Next pressed (normal) -> silence");
+              id(dfp).stop();
+              id(athan_playing) = false;
+              //// Run the test script when ui_next pressed in normal mode
+              id(test_script).execute();
+              id(update_display).execute();
+              return;
+            }
+            // In menu: move forward
+            ESP_LOGI("ui","Next pressed (menu) -> forward");
+            if (id(ui_mode) == 1) {
+              id(ui_menu_index) = (id(ui_menu_index) + 1) % 7;
+              // any navigation breaks consecutive select count for Q
+              id(q_select_count) = 0;
+              // If navigation lands on the Update item, reset its state
+              if (id(ui_menu_index) == 3) {
+                id(update_check_state) = 0;
+                id(update_display).execute();
+              }
+              // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
+            } else if (id(ui_mode) == 2) {
+              id(athan_index) = (id(athan_index) + 1) % 10;
+              if (!id(athan_playing)) id(dfp).play_file(1 + id(athan_index));
+            } else if (id(ui_mode) == 3) {
+              id(htick_index) = (id(htick_index) + 1) % 11;
+              if (id(htick_index) == 0) {
+                id(dfp).stop();
+              } else {
+                id(dfp).play_file(10 + id(htick_index));
+              }
+            } else if (id(ui_mode) == 4) {
+              id(location_index) = (id(location_index) + 1) % 15;
+            } else if (id(ui_mode) == 5) {
+              // Volume submenu: decrement by 10%, wrap 10 -> 100
+              int v = id(volume_level);
+              if (v <= 10) {
+                id(volume_level) = 100;
+              } else {
+                id(volume_level) = v - 10;
+              }
+              ESP_LOGI("ui", "Volume changed to %d%%", id(volume_level));
+              // Map percentage (0-100) to DFPlayer volume range (0-30)
+              int vol = (id(volume_level) * 30 + 50) / 100;
+              if (vol < 0) vol = 0; if (vol > 30) vol = 30;
+              id(dfp).set_volume(vol);
+              ESP_LOGI("ui", "DFPlayer volume set to %d (mapped from %d%%)", vol, id(volume_level));
+              // Play feedback tone so user hears the change at new volume
+              if (!id(athan_playing)) id(dfp).play_file(22);
+            }
+            id(update_display).execute();
+
+  - platform: gpio
+    name: "ui_select"
+    id: "ui_select"
+    pin:
+      number: GPIO12
+      mode: INPUT_PULLUP
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(ui_last_activity) = millis();
+            // If not in menu, enter main menu
+            if (id(ui_mode) == 0) {
+              if(id(athan_playing)){
+                ESP_LOGI("ui","Select pressed -> silence athan");
+                id(dfp).stop();
+                id(athan_playing) = false;
+                id(update_display).execute();
+                return;
+              }
+              id(ui_mode) = 1; // main menu
+              id(ui_menu_index) = 0;
+              // Always reset update-check state when entering the menu
+              id(update_check_state) = 0;
+              ESP_LOGI("ui","Select pressed -> Entered menu: index=0");
+              if (!id(athan_playing)) id(dfp).play_file(23);
+              id(update_display).execute();
+              return;
+            }
+            // If in menu, act as select/confirm
+            ESP_LOGI("ui","Select pressed in menu index=%d", id(ui_menu_index));
+            if (!id(athan_playing)) id(dfp).play_file(23);
+            if (id(ui_mode) == 1) {
+              // main menu: 0=athan,1=htick,2=location,3=update,4=volume,5=cancel,6=Q
+              if (id(ui_menu_index) == 0) {
+                id(ui_mode) = 2;
+                id(athan_index) = id(athan_file_index) - 1;
+                if (id(athan_index) < 0) id(athan_index) = 0;
+                ESP_LOGI("ui","Entered Athan submenu (index=%d)", id(athan_index));
+                if (!id(athan_playing)) id(dfp).play_file(1 + id(athan_index));
+              } else if (id(ui_menu_index) == 1) {
+                id(ui_mode) = 3;
+                if (id(htick_file_index) == 0) id(htick_index) = 0; else id(htick_index) = id(htick_file_index) - 10;
+                ESP_LOGI("ui","Entered Hourly Tick submenu (index=%d)", id(htick_index));
+                if (!id(athan_playing) && id(htick_index) > 0) id(dfp).play_file(10 + id(htick_index));
+              } else if (id(ui_menu_index) == 2) {
+                id(ui_mode) = 4; // location menu
+                // Initialize preview index from the persisted selection so the
+                // menu opens at the last saved location. `location_index` is
+                // preview-only while menu is open.
+                id(location_index) = id(selected_location_index);
+                ESP_LOGI("ui","Entered Location submenu (preview_index=%d)", id(location_index));
+              } else if (id(ui_menu_index) == 3) {
+                // Update: first press checks remote latest.json, second press confirms update
+                if (id(update_check_state) == 2) {
+                  // Previously found an update and user confirmed -> attempt update
+                  id(update_check_state) = 4; // attempting
+                  id(update_display).execute();
+                  id(perform_update).execute();
+                } else {
+                  // Start checking remote latest.json
+                  id(update_check_state) = 3; // checking
+                  // Refresh the display immediately so the "checking.." text appears
+                  id(update_display).execute();
+                  id(check_update_remote).execute();
+                  id(ui_mode) = 1; // stay in menu
+                  ESP_LOGI("update", "Checking remote for latest version...");
+                }
+              } else if (id(ui_menu_index) == 4) {
+                // Enter volume submenu
+                id(ui_mode) = 5;
+                ESP_LOGI("ui", "Entered Volume submenu (level=%d%%)", id(volume_level));
+                if (!id(athan_playing)) id(dfp).play_file(22);
+              } else if (id(ui_menu_index) == 5) {
+                // Cancel
+                id(ui_mode) = 0;
+                ESP_LOGI("ui","Menu cancelled");
+              } else if (id(ui_menu_index) == 6) {
+                // Q toggle item: enabling requires 10 consecutive select presses
+                if (!id(q_flag)) {
+                  id(q_select_count) = id(q_select_count) + 1;
+                  ESP_LOGI("ui","Q select count = %d", id(q_select_count));
+                  if (id(q_select_count) >= 10) {
+                    id(q_flag) = true;
+                    id(q_select_count) = 0;
+                    ESP_LOGI("ui","Q enabled via 10 presses");
+                  }
+                } else {
+                  // Q is on: a single press turns it off
+                  id(q_flag) = false;
+                  id(q_select_count) = 0;
+                  ESP_LOGI("ui","Q disabled via single press");
+                }
+              } else {
+                id(ui_mode) = 0;
+              }
+            } else if (id(ui_mode) == 2) {
+              // select athan
+              id(athan_file_index) = 1 + id(athan_index);
+              id(dfp).stop();
+              id(ui_mode) = 0;
+              ESP_LOGI("ui","Athan %d selected", id(athan_file_index));
+            } else if (id(ui_mode) == 3) {
+              // select htick (0 = None)
+              if (id(htick_index) == 0) id(htick_file_index) = 0; else id(htick_file_index) = 10 + id(htick_index);
+              id(dfp).stop();
+              id(ui_mode) = 0;
+              ESP_LOGI("ui","Hourly Tick %d selected", id(htick_file_index));
+            } else if (id(ui_mode) == 4) {
+                if (id(location_index) != id(selected_location_index)) {
+                  // apply the change only if the fetch returns a valid TZ.
+                  id(change_location_handler).execute();
+                } else {
+                  id(ui_mode) = 0;
+                }
+            } else if (id(ui_mode) == 5) {
+              // confirm volume selection
+              ESP_LOGI("ui", "Volume selected: %d%%", id(volume_level));
+              id(ui_mode) = 0;
+            }
+            id(update_display).execute();
+light:
+  - platform: binary
+    id: builtin_led
+    name: "Built-in LED"
+    output: led_output
+    restore_mode: ALWAYS_OFF
+
+# External relay switch (exposed to Home Assistant)
+switch:
+  - platform: gpio
+    id: external_relay
+    name: "External Relay"
+    pin: GPIO13
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: restart
+    id: _restart
+    internal: true
+
+output:
+  - platform: gpio
+    id: led_output
+    pin: GPIO2
+    inverted: true
+  # # # for testing with RPI:
+  # - platform: gpio
+  #   id: gpio0_output
+  #   pin: GPIO0
+  #   inverted: false
+
+http_request:
+  useragent: esphome-device
+  timeout: 10s
+  verify_ssl: False
+
+display:
+  - platform: ssd1306_i2c
+    id: oled
+    model: "SSD1306 128x64"
+    reset_pin: GPIO16
+    address: 0x3D
+
+font:
+  - file: "gfonts://Roboto"
+    id: font1
+    size: 20
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "America/Los_Angeles"   # precompiled, can't be defined using lambda/variable
+    on_time_sync:
+      then:
+        - lambda: |-
+            if (!id(time_zone_changed_at_boot)) {
+              ESP_LOGI("tz", "Applying persisted timezone after time sync: '%s'", id(selected_location_tz).c_str());
+              id(sntp_time).set_timezone(id(selected_location_tz).c_str());
+              id(sntp_time).update();
+              id(time_zone_changed_at_boot) = true;
+            }
+        - script.execute: update_display
+        - wait_until:
+            timeout: 8s
+            condition:
+              lambda: 'return id(sntp_time).now().is_valid();'
+        - lambda: |-
+            id(update_display).execute();
+            if (!id(prayer_times_refreshed_at_least_once)) {
+              id(compute_next_prayer).execute();
+            }
+    # Hourly tick: play once at 0 minute past each hour (HH:00:00). Also refresh prayer times if needed.
+    on_time:
+      - minutes: 0
+        seconds: 0
+        then:
+          - script.execute: refresh_prayer_times_if_needed
+          - lambda: |-
+              if (!id(athan_playing) && id(htick_file_index) > 0) {
+                  id(dfp).play_file(id(htick_file_index));
+              }
+      - seconds: 0
+        then:
+          - lambda: |-
+              id(update_display).execute();
+              if (!id(prayer_times_refreshed_at_least_once)){
+                id(refresh_prayer_times_if_needed).execute();
+              }
+              return;
+
+# ======================================================
+# GLOBAL FLAGS AND VARIABLES
+# ======================================================
+globals:
+  - id: prayer_times_refreshed_at_least_once
+    type: bool
+    initial_value: "false"
+    restore_value: false
+
+  - id: loaded_prayer_times_once
+    type: bool
+    initial_value: "false"
+    restore_value: false
+
+  - id: volume_level
+    type: int
+    initial_value: "50"
+    restore_value: true
+
+  - id: athan_file_index
+    type: int
+    initial_value: "1"
+    restore_value: true
+  
+  - id: htick_file_index
+    type: int
+    initial_value: "11"
+    restore_value: true
+
+  - id: athan_playing
+    type: bool
+    initial_value: "false"
+    restore_value: false
+
+  - id: ui_mode
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: ui_menu_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: athan_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: htick_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: location_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: selected_location_index
+    type: int
+    initial_value: "0"
+    restore_value: true
+
+  - id: selected_location_tz
+    type: std::string
+    initial_value: '"America/Los_Angeles"'
+    restore_value: true
+
+  - id: time_zone_changed_at_boot
+    type: bool
+    initial_value: "false"
+    restore_value: false
+
+  - id: ui_last_activity
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: current_athan_prayer_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  - id: prayer_hours
+    type: int[7]
+    initial_value: "{5, 6, 7, 12, 15, 17, 18}"   # fajr, shrouk, doha, dhuhr, asr, maghrib, isha
+    restore_value: true
+  - id: prayer_minutes
+    type: int[7]
+    initial_value: "{42, 13, 39, 15, 47, 12, 28}"
+    restore_value: true
+  - id: prayer_times_day
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: prayer_times_year
+    type: int
+    initial_value: "0"
+    restore_value: true
+
+  - id: next_prayer_index
+    type: int
+    initial_value: "0"
+    restore_value: true
+    
+  - id: next_prayer_hour
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: next_prayer_minute
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: quyam_next_hour
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: quyam_next_minute
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: quyam_triggered
+    type: bool
+    initial_value: "false"
+    restore_value: false
+  - id: q_flag
+    type: bool
+    initial_value: "false"
+    restore_value: true
+
+  - id: q_select_count
+    type: int
+    initial_value: "0"
+    restore_value: false
+  - id: update_latest_version
+    type: int
+    initial_value: "0"
+    restore_value: false
+  - id: update_check_state
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+
+script:
+  - id: refresh_prayer_times_if_needed
+    mode: restart
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) {
+           return;
+          }
+          if (!id(loaded_prayer_times_once)) {
+            ESP_LOGI("prayer","Prayer times never loaded yet — loading now");
+            id(load_prayer_times).execute();
+          }
+          int current_day = now.day_of_year;
+          int current_year = now.year;
+          if (id(prayer_times_day) != current_day || id(prayer_times_year) != current_year) {
+            ESP_LOGI("prayer","Prayer times are outdated, reloading...");
+            id(loaded_prayer_times_once) = false;
+            id(prayer_times_refreshed_at_least_once) = false;
+            id(load_prayer_times).execute();
+          } else {
+            id(prayer_times_refreshed_at_least_once) = true;
+          }
+          id(compute_next_prayer).execute();
+          id(log_prayers).execute();
+          id(update_display).execute();
+  - id: make_athan
+    mode: restart
+    then:
+      - logger.log: "Athan Calling!"
+      - lambda: |-
+          id(athan_playing) = true;
+          id(dfp).play_file(id(athan_file_index));
+      - light.turn_on: builtin_led
+      - delay: 5min
+      - light.turn_off: builtin_led
+      - lambda: |-
+          id(athan_playing) = false;
+
+  - id: perform_update
+    mode: single
+    then:
+      - logger.log: "Perform update placeholder executed"
+      - lambda: |-
+          // indicate attempting state while OTA runs
+          id(update_check_state) = 4;
+          id(update_display).execute();
+      - ota.http_request.flash:
+          url: !lambda |-
+            char u[256];
+            snprintf(u, sizeof(u), "http://update_url/firmwareV%d.bin", id(update_latest_version));
+            return std::string(u);
+          md5_url: !lambda |-
+            char m[256];
+            snprintf(m, sizeof(m), "http://update_url/firmwareV%d.md5", id(update_latest_version));
+            return std::string(m);
+      - lambda: |-
+          // Clear attempting state after OTA attempt so menu doesn't remain showing "attempting .."
+          id(update_check_state) = 0;
+          id(ui_mode) = 0;
+          id(update_display).execute();
+
+  - id: test_script
+    mode: single
+    then:
+      - lambda: |-
+          //ESP_LOGI("test","Waving from test..");
+          return;
+  - id: check_update_remote
+    mode: single
+    then:
+      - logger.log: "Starting remote update check"
+      - http_request.get:
+          url: "http://raw.githack.com/et7ad/athan_json/master/docs/firmwareinfo/latest.json"
+          capture_response: false
+          max_response_buffer_size: 1024
+          on_response:
+            then:
+              - lambda: |-
+                  ESP_LOGI("update", "Reading latest.json response...");
+                  std::string json_text;
+                  char buf[128];
+                  int len;
+                  int total_bytes = 0;
+                  const int max_bytes = 1024;
+                  while ((len = response->read((uint8_t*)buf, sizeof(buf))) > 0) {
+                    if (total_bytes + len > max_bytes) len = max_bytes - total_bytes;
+                    json_text.append(buf, len);
+                    total_bytes += len;
+                    if (total_bytes >= max_bytes) break;
+                  }
+
+                  if (total_bytes == 0) {
+                    ESP_LOGE("update", "Empty latest.json response");
+                    id(update_check_state) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  int start = json_text.find('{');
+                  if (start > 0) json_text.erase(0, start);
+                  int end = json_text.rfind('}');
+                  if (end != -1 && end + 1 < json_text.size()) json_text.erase(end + 1);
+
+                  JsonDocument doc;
+                  auto err = deserializeJson(doc, json_text);
+                  if (err) {
+                    ESP_LOGE("update", "JSON parse failed: %s", err.c_str());
+                    id(update_check_state) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  if (!doc["latest_version"].is<int>()) {
+                    ESP_LOGE("update", "latest_version missing or not an int in JSON");
+                    id(update_check_state) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  int latest = doc["latest_version"].as<int>();
+                  id(update_latest_version) = latest;
+                  if (latest <= ${current_version}) {
+                    id(update_check_state) = 1; // up-to-date
+                    ESP_LOGI("update", "Device up-to-date: %d", latest);
+                  } else {
+                    id(update_check_state) = 2; // update available
+                    ESP_LOGI("update", "Update available: %d -> %d", ${current_version}, latest);
+                  }
+                  id(update_display).execute();
+  - id: run_quyam
+    mode: single
+    then:
+      - lambda: 'id(quyam_triggered) = true;'
+      - if:
+          condition:
+            lambda: 'return id(q_flag);'
+          then:
+            - logger.log: "Quyam starting (Q flag is ON)"
+            - switch.turn_on: external_relay
+            - lambda: 'id(dfp).play_file(25);'
+            - delay: 15min
+            - switch.turn_off: external_relay
+            
+          else:
+            - logger.log: "Q flag is OFF — skipping Quyam actions"
+
+
+  - id: change_location_handler
+    mode: single
+    then:
+      - logger.log: "Attempting to fetch timezone for previewed location"
+      - http_request.get:
+          url: !lambda |-
+            char u[256];
+            static const char* locs[15] = {"davis","santaclara","sacramento","masjid4","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+            int li = id(location_index);
+            if (li < 0 || li > 14) li = 0;
+            const char* loc = locs[li];
+            snprintf(u, sizeof(u),
+              "http://raw.githack.com/et7ad/athan_json/master/docs/timezones/%s.json",
+              loc);
+            ESP_LOGI("tz", "TZ URL = %s", u);
+            return std::string(u);
+          capture_response: false
+          max_response_buffer_size: 512
+          on_response:
+            then:
+              - lambda: |-
+                  ESP_LOGI("tz", "Reading timezone response...");
+
+                  std::string json_text;
+                  char buf[128];
+                  int len;
+                  int total_bytes = 0;
+                  const int max_bytes = 512;
+
+                  while ((len = response->read((uint8_t*)buf, sizeof(buf))) > 0) {
+                    if (total_bytes + len > max_bytes) len = max_bytes - total_bytes;
+                    json_text.append(buf, len);
+                    total_bytes += len;
+                    if (total_bytes >= max_bytes) break;
+                  }
+
+                  if (total_bytes == 0) {
+                    ESP_LOGE("tz", "Empty timezone response");
+                    id(ui_mode) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  int start = json_text.find('{');
+                  if (start > 0) json_text.erase(0, start);
+                  int end = json_text.rfind('}');
+                  if (end != -1 && end + 1 < json_text.size()) json_text.erase(end + 1);
+
+                  JsonDocument doc;
+                  auto err = deserializeJson(doc, json_text);
+                  if (err) {
+                    ESP_LOGE("tz", "JSON parse failed: %s", err.c_str());
+                    id(ui_mode) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  if (!doc["TZ"].is<const char*>()) {
+                    ESP_LOGE("tz", "TZ key missing or invalid");
+                    id(ui_mode) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  std::string tz(doc["TZ"].as<const char*>());
+                  if (tz.size() == 0) {
+                    ESP_LOGE("tz", "TZ value empty");
+                    id(ui_mode) = 0;
+                    id(update_display).execute();
+                    return;
+                  }
+
+                  // success: apply new timezone value and update selected index
+                  id(selected_location_tz) = tz;
+                  // Set system/ESP timezone immediately so SNTP/time functions use it
+                  ESP_LOGI("tz", "Setting system timezone to '%s'", id(selected_location_tz).c_str());
+                  id(sntp_time).set_timezone(id(selected_location_tz).c_str());
+                  id(sntp_time).update();
+                  id(selected_location_index) = id(location_index);
+                  id(prayer_times_day) = -1;
+                  id(loaded_prayer_times_once) = false;
+                  id(prayer_times_refreshed_at_least_once) = false;
+                  id(refresh_prayer_times_if_needed).execute();
+                  ESP_LOGI("tz", "Applied new timezone '%s' and location index %d", tz.c_str(), id(selected_location_index));
+                  id(update_display).execute();
+      - lambda: |-
+          id(ui_mode) = 0;
+          id(update_display).execute();
+
+  - id: load_prayer_times
+    mode: restart
+    then:
+      - http_request.get:
+          url: !lambda |-
+            auto now = id(sntp_time).now();
+            int year = now.year;
+            int day  = now.day_of_year;
+
+            char u[256];
+            static const char* locs[15] = {"davis","santaclara","sacramento","masjid4","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+            int li = id(selected_location_index);
+            if (li < 0 || li > 14) li = 0;
+            const char* loc = locs[li];
+            snprintf(u, sizeof(u),
+              "http://raw.githack.com/et7ad/athan_json/master/docs/athantimes/%s/%d/%03d.json",
+              loc, year, day);
+
+            ESP_LOGI("prayer", "URL = %s", u);
+            return std::string(u);
+          capture_response: false
+          max_response_buffer_size: 4096
+          on_response:
+            then:
+              - lambda: |-
+                  ESP_LOGI("prayer", "Reading response safely...");
+
+                  std::string json_text;
+                  char buf[128];
+                  int len;
+                  int total_bytes = 0;
+                  const int max_bytes = 4096;  // safety limit
+
+                  // Loop until no more data or max_bytes reached
+                  while ((len = response->read((uint8_t*)buf, sizeof(buf))) > 0) {
+                    // Append only up to max_bytes
+                    if (total_bytes + len > max_bytes) {
+                      len = max_bytes - total_bytes;
+                    }
+                    json_text.append(buf, len);
+                    total_bytes += len;
+
+                    if (total_bytes >= max_bytes) {
+                      ESP_LOGW("prayer", "Reached max read bytes (%d), stopping", max_bytes);
+                      break;
+                    }
+                  }
+
+                  ESP_LOGI("prayer", "JSON size = %d bytes", total_bytes);
+
+                  if (total_bytes == 0) {
+                    ESP_LOGE("prayer", "No data received, skipping parse");
+                    return;
+                  }
+
+                  // Strip everything before the first '{'
+                  int start = json_text.find('{');
+                  if (start > 0) json_text.erase(0, start);
+
+                  // Strip everything after the last '}'
+                  int end = json_text.rfind('}');
+                  if (end != -1 && end + 1 < json_text.size())
+                    json_text.erase(end + 1);
+                  
+                  JsonDocument doc;  // adjust size if needed
+                  auto err = deserializeJson(doc, json_text);
+                  if (err) {
+                    ESP_LOGE("prayer", "JSON parse failed: %s", err.c_str());
+                    return;
+                  }
+
+                  // Fajr (always AM)
+                  {
+                    std::string s(doc["fajr"].as<const char*>());  // "06:06 "
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    id(prayer_hours)[0] = h;    // Fajr hour
+                    id(prayer_minutes)[0] = m;  // Fajr minute
+                  }
+
+                  // Shrouk (always AM)
+                  {
+                    std::string s(doc["sunrise"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    id(prayer_hours)[1] = h;
+                    id(prayer_minutes)[1] = m;
+                  }
+
+                  // Doha (always AM) -- inserted after Sunrise; this is exempt from making athan
+                  {
+                    std::string s(doc["doha"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    id(prayer_hours)[2] = h;
+                    id(prayer_minutes)[2] = m;
+                  }
+
+                  // Dhuhr (special logic: PM if hour < 9, AM if hour > 9)
+                  {
+                    std::string s(doc["dhuhar"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    if (h < 9) h += 12;  // PM adjustment
+                    id(prayer_hours)[3] = h;
+                    id(prayer_minutes)[3] = m;
+                  }
+
+                  // Asr (always PM)
+                  {
+                    std::string s(doc["asr"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    if (h < 12) h += 12;
+                    id(prayer_hours)[4] = h;
+                    id(prayer_minutes)[4] = m;
+                  }
+
+                  // Maghrib (always PM)
+                  {
+                    std::string s(doc["maghrib"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    if (h < 12) h += 12;
+                    id(prayer_hours)[5] = h;
+                    id(prayer_minutes)[5] = m;
+                  }
+
+                  // Isha (always PM)
+                  {
+                    std::string s(doc["isha"].as<const char*>());
+                    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+                    int h = std::stoi(s.substr(0,2));
+                    int m = std::stoi(s.substr(3,2));
+                    if (h < 12) h += 12;
+                    id(prayer_hours)[6] = h;
+                    id(prayer_minutes)[6] = m;
+                  }
+
+                  auto now = id(sntp_time).now();
+                  id(prayer_times_day) = now.day_of_year;
+                  id(prayer_times_year) = now.year;
+
+                  ESP_LOGI("prayer", "prayer times loaded from json");
+                  id(log_prayers).execute();
+                  // Indicate that prayer times were successfully loaded at least once
+                  id(loaded_prayer_times_once) = true;
+                  ESP_LOGI("prayer", "loaded_prayer_times_once = true");
+  - id: log_prayers
+    mode: restart
+    then:
+      - lambda: |-
+          ESP_LOGI("prayer","Prayer times for today:");
+          ESP_LOGI("prayer","Fajr: %02d:%02d", id(prayer_hours)[0], id(prayer_minutes)[0]);
+          ESP_LOGI("prayer","Shrouk: %02d:%02d", id(prayer_hours)[1], id(prayer_minutes)[1]);
+          ESP_LOGI("prayer","Doha: %02d:%02d", id(prayer_hours)[2], id(prayer_minutes)[2]);
+          ESP_LOGI("prayer","Dhuhr: %02d:%02d", id(prayer_hours)[3], id(prayer_minutes)[3]);
+          ESP_LOGI("prayer","Asr: %02d:%02d", id(prayer_hours)[4], id(prayer_minutes)[4]);
+          ESP_LOGI("prayer","Maghrib: %02d:%02d", id(prayer_hours)[5], id(prayer_minutes)[5]);
+          ESP_LOGI("prayer","Isha: %02d:%02d", id(prayer_hours)[6], id(prayer_minutes)[6]);
+
+  - id: compute_next_prayer
+    mode: restart
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) {
+           return;
+          }
+          int h = now.hour;
+          int m = now.minute;
+          // Find first prayer time still in the future
+          for (int i = 0; i < 7; i++) {
+            int ph = id(prayer_hours)[i];
+            int pm = id(prayer_minutes)[i];
+            if ( (h < ph) || (h == ph && m < pm) ) {
+              id(next_prayer_index) = i;
+              id(next_prayer_hour)  = ph;
+              id(next_prayer_minute)= pm;
+              ESP_LOGI("prayer", "Next prayer: index=%d at %02d:%02d", 
+                i, ph, pm);
+              // If the next prayer is Fajr (index 0), schedule "quyam"
+              if (i == 0) {
+                int total = ph * 60 + pm - 25; // 25 minutes before fajr
+                if (total < 0) total += 24 * 60;
+                id(quyam_next_hour) = total / 60;
+                id(quyam_next_minute) = total % 60;
+                id(quyam_triggered) = false;
+                ESP_LOGI("quyam", "Quyam scheduled at %02d:%02d (25min before fajr)", id(quyam_next_hour), id(quyam_next_minute));
+              }
+              return;
+            }
+          }
+          // All prayers passed → tomorrow Fajr
+          id(next_prayer_index) = 0;
+          id(next_prayer_hour)  = id(prayer_hours)[0];
+          id(next_prayer_minute)= id(prayer_minutes)[0];
+          ESP_LOGI("prayer", "Next prayer: TOMORROW FAJR at %02d:%02d",
+            id(next_prayer_hour), id(next_prayer_minute));
+          // Schedule quyam 25 minutes before tomorrow's fajr
+          {
+            int ph = id(next_prayer_hour);
+            int pm = id(next_prayer_minute);
+            int total = ph * 60 + pm - 25;
+            if (total < 0) total += 24 * 60;
+            id(quyam_next_hour) = total / 60;
+            id(quyam_next_minute) = total % 60;
+            id(quyam_triggered) = false;
+            ESP_LOGI("quyam", "Quyam scheduled at %02d:%02d (25min before fajr)", id(quyam_next_hour), id(quyam_next_minute));
+          }
+
+  - id: update_display
+    mode: restart
+    then:
+      - lambda: |-
+          id(oled).clear();
+          auto now = id(sntp_time).now();
+          if (!now.is_valid() && id(ui_mode)==0) {
+            id(oled).line(0, 11, 127, 11); //crossline1
+            id(oled).line(0, 33, 127, 33); //crossline2
+            id(oled).line(0, 55, 127, 55); //crossline3
+          }
+
+          if (!id(prayer_times_refreshed_at_least_once) && id(ui_mode)==0) {
+            id(oled).line(0, 33, 127, 33); //crossline2
+            id(oled).line(0, 55, 127, 55); //crossline3
+          }
+
+          if (!WiFi.isConnected()){
+            id(oled).circle(116, 52, 10);
+            id(oled).printf(107, 41, id(font1), "W");
+            id(oled).line(105, 43, 125, 63);
+          }
+
+          // Menu timeout: if menu active and no activity for >= 60s, exit menu
+          if (id(ui_mode) != 0) {
+            unsigned long last = id(ui_last_activity);
+            if (last > 0) {
+              unsigned long diff = millis() - last;
+              if (diff >= 60000) {
+                ESP_LOGI("ui", "Menu timed out after %lu ms, returning to normal", diff);
+                id(ui_mode) = 0;
+                id(dfp).stop();
+              }
+            }
+          }
+
+          int hour = now.hour;
+          int minute = now.minute;
+
+          static const char* prayer_names[7] = {"Fajr", "Sunrise", "Doha", "Dhuhr", "Asr", "Maghrib", "Isha"};
+          const char* next_prayer_name = prayer_names[id(next_prayer_index)];
+
+          // Month abbreviations for compact date display (Jan, Feb, ...)
+          static const char* months[12] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+
+          int total_mins_to_next = id(next_prayer_hour)*60 + id(next_prayer_minute) - (hour*60 + minute);
+          if (total_mins_to_next < 0) total_mins_to_next += 24*60;
+          int hrs = total_mins_to_next / 60;
+          int mins = total_mins_to_next % 60;
+
+          char line1[32];
+          char line2[32];
+          char line3[32];
+
+          // If in menu, render concise menu/submenu UI
+          if (id(ui_mode) != 0) {
+            if (id(ui_mode) == 1) {
+              // Main menu: first line fixed, second line shows current item
+              static const char* menu_items[7] = {"Athan","Hourly Tick","Location","Update","Volume","Cancel","Q"};
+              id(oled).print(0, 0, id(font1), "Menu:");
+              if (id(ui_menu_index) == 6) {
+                snprintf(line2, sizeof(line2), "Q: %s", (id(q_flag) ? "ON" : "OFF"));
+              } else {
+                snprintf(line2, sizeof(line2), "%s", menu_items[id(ui_menu_index)]);
+              }
+              id(oled).print(0, 22, id(font1), line2);
+              // When Update item selected, show version info on third row
+              if (id(ui_menu_index) == 3) {
+                if (id(update_check_state) == 0) {
+                  // Not checked yet: show current version only
+                  snprintf(line3, sizeof(line3), "V%d", ${current_version});
+                } else if (id(update_check_state) == 3) {
+                  snprintf(line3, sizeof(line3), "V%d checking..", ${current_version});
+                } else if (id(update_check_state) == 1) {
+                  snprintf(line3, sizeof(line3), "V%d uptodate", ${current_version});
+                } else if (id(update_check_state) == 2) {
+                  snprintf(line3, sizeof(line3), "V%d -> V%d ?", ${current_version}, id(update_latest_version));
+                } else if (id(update_check_state) == 4) {
+                  snprintf(line3, sizeof(line3), "attempting ..");
+                } else {
+                  snprintf(line3, sizeof(line3), "V%d", ${current_version});
+                }
+                id(oled).print(0, 44, id(font1), line3);
+              }
+            } else if (id(ui_mode) == 2) {
+              snprintf(line1, sizeof(line1), "Athan %d / 10", id(athan_index) + 1);
+              snprintf(line2, sizeof(line2), "File: %d", 1 + id(athan_index));
+              id(oled).print(0, 0, id(font1), line1);
+              id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 3) {
+              if (id(htick_index) == 0)
+                snprintf(line1, sizeof(line1), "Hourly Tick: None");
+              else
+                snprintf(line1, sizeof(line1), "Hourly Tick %d / 10", id(htick_index));
+              id(oled).print(0, 0, id(font1), line1);
+              if (id(htick_index) > 0) {
+                snprintf(line2, sizeof(line2), "File: %d", 10 + id(htick_index));
+                id(oled).print(0, 22, id(font1), line2);
+              }
+            } else if (id(ui_mode) == 4) {
+              static const char* locs[15] = {"davis","santaclara","sacramento","masjid4","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+              // Location submenu: short header + location name
+              id(oled).print(0, 0, id(font1), "Location:");
+              snprintf(line2, sizeof(line2), "%s", locs[id(location_index)]);
+              id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 5) {
+              // Volume submenu
+              snprintf(line1, sizeof(line1), "Volume 🔈");
+              snprintf(line2, sizeof(line2), "%d%%", id(volume_level));
+              id(oled).print(0, 0, id(font1), line1);
+              id(oled).print(0, 22, id(font1), line2);
+            }
+            id(oled).display();
+            return;
+          }
+
+          // Normal (not in menu) display — no seconds, update once per minute
+          if (id(athan_playing)) {
+            id(oled).print(0, 0, id(font1), "Athan Time:");
+            snprintf(line1, sizeof(line1), "%s prayer", prayer_names[id(current_athan_prayer_index)]);
+            id(oled).print(0, 22, id(font1), line1);
+            // Show time and compact date (e.g. "12:34 26 Nov") on the same line
+            snprintf(line3, sizeof(line3), "%02d:%02d  %02d%s", hour, minute, now.day_of_month, months[now.month - 1]);
+            id(oled).print(0, 44, id(font1), line3);
+          } else {
+            // Show time and compact date (e.g. "12:34 26 Nov") on the top line
+            snprintf(line1, sizeof(line1), "%02d:%02d  %02d%s", hour, minute, now.day_of_month, months[now.month - 1]);
+            snprintf(line2, sizeof(line2), "%s %02d:%02d", next_prayer_name, id(next_prayer_hour), id(next_prayer_minute));
+            snprintf(line3, sizeof(line3), "Rem %02d:%02d", hrs, mins);
+            id(oled).print(0, 0, id(font1), line1);
+            id(oled).print(0, 22, id(font1), line2);
+            id(oled).print(0, 44, id(font1), line3);
+          }
+
+          id(oled).display();
+
+# ======================================================
+# EVERY 1 SECOND — CLOCK TICK
+# ======================================================
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) {
+           return;
+          }
+          // Ensure persisted timezone is applied once when time becomes valid.
+          if (!id(time_zone_changed_at_boot)) {
+            ESP_LOGI("tz", "Applying persisted timezone from 1s tick: '%s'", id(selected_location_tz).c_str());
+            id(sntp_time).set_timezone(id(selected_location_tz).c_str());
+            id(sntp_time).update();
+            id(time_zone_changed_at_boot) = true;
+          }
+          if (!id(prayer_times_refreshed_at_least_once)) {
+            return;
+          }
+          int hour = now.hour;
+          int minute = now.minute;
+
+          int isha_h = id(prayer_hours)[6];
+          int isha_min = id(prayer_minutes)[6];
+          bool time_more_than_prayer = (hour > id(next_prayer_hour)) || (hour == id(next_prayer_hour) && minute >= id(next_prayer_minute));
+          bool less_than_isha = (hour < isha_h) || (hour == isha_h && minute < isha_min);
+          bool prayer_is_isha = id(next_prayer_index) == 6;
+          
+          if ( time_more_than_prayer && (prayer_is_isha || less_than_isha) ) {
+              // Skip making athan for Sunrise (1) and Doha (2)
+              if (id(next_prayer_index)!=1 && id(next_prayer_index)!=2){
+                id(make_athan).execute();
+                id(current_athan_prayer_index) = id(next_prayer_index);
+              }
+              ESP_LOGI("prayer", "Prayer time reached: index=%d!", id(next_prayer_index));
+              id(compute_next_prayer).execute();
+              id(update_display).execute();
+          }
+          if (id(q_flag)) {
+            // Only trigger once per scheduled period
+            if (!id(quyam_triggered)) {
+              if (id(next_prayer_index) == 0 && hour == id(quyam_next_hour) && minute == id(quyam_next_minute)) {
+                ESP_LOGI("quyam", "Quyam time reached -> marking triggered and executing run_quyam");
+                id(quyam_triggered) = true;
+                id(run_quyam).execute();
+              }
+            }
+          }
+  - interval: 1min
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) {
+           id(update_display).execute();
+          }
+          return;
