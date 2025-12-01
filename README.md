@@ -53,7 +53,7 @@ For more detail:
 	- **Next** (connected to `GPIO14` in the YAML).
 	- **Select** (connected to `GPIO12`).
 - **External relay:** One relay output on `GPIO13`, exposed to Home Assistant as a switch (e.g., to drive an external amplifier, light, or another low‑voltage load through a proper relay board).
-- **PCB + enclosure:** KiCad project and a 3D model for the enclosure live under `athanV1_PCB/`.
+- **PCB + enclosure:** KiCad project and 3D enclosure files live under `hardware/pcb/athanV1_PCB/`.
 
 Pictures (these will show once you add photos to `images/`):
 
@@ -175,7 +175,7 @@ Out of the box the following are especially useful:
 
 ## 2. Building your own device (hardware and assembly)
 
-If you want to assemble the clock from scratch, this section gives you the main pointers. The detailed wiring is in `WIRING.md` (which you don't really need because the schematic is already provided) and the parts list in `BOM.md`.
+If you want to assemble the clock from scratch, this section gives you the main pointers. The detailed wiring is in `WIRING.md` (which you don't really need because the schematic is already provided) and the PCB parts list is in `BOM.md` (which in turn points to the KiCad‑generated BOM files under `hardware/pcb/athanV1_PCB/`).
 
 ### 2.1 Hardware overview
 
@@ -202,8 +202,8 @@ If you prefer breadboard wiring instead of the PCB, you can still follow the sam
 
 ### 2.3 PCB, schematic and enclosure
 
-- All KiCad files (schematic, layout, and project settings) are under `athanV1_PCB/`.
-- 3D model(s) for the enclosure are under `athanV1_PCB/generated_imgs_and_3d/`.
+- All KiCad files (schematic, layout, and project settings) are under `hardware/pcb/athanV1_PCB/`.
+- 3D model(s) for the enclosure are under `hardware/pcb/athanV1_PCB/generated_imgs_and_3d/`.
 
 You can open these in KiCad (it's an open source tool), tweak dimensions, circuit, and export new manufacturing files as needed.
 

@@ -1,14 +1,15 @@
-**Bill Of Materials (placeholder)**
+**Bill Of Materials**
 
-This file is a placeholder for the full Bill Of Materials. I will populate it with exact part numbers, quantities, and suggested vendors shortly. For now, the important references are:
+The full, PCB‑level Bill Of Materials for this project is exported directly from the KiCad hardware project and lives next to the PCB files:
 
-- KiCad project: `athanV1_PCB/` (schematic, board, footprints)
-- DFPlayer Mini module (UART, microSD audio playback)
-- ESP8266 module / D1 Mini (ESP-12F/ESP-12E style board)
-- SSD1306 128x64 I2C OLED display (0.96" or similar)
-- Buttons (2) for `ui_next` and `ui_select`
-- Relay (if using external relay on `GPIO13`) and transistor/driver as needed
-- Power supply (5V for DFPlayer + ESP; check your board power requirements)
-- MicroSD card for DFPlayer (with audio files numbered for DFPlayer)
+- CSV: `hardware/pcb/athanV1_PCB/BOM.csv`
+- Excel: `hardware/pcb/athanV1_PCB/BOM.xlsx`
 
-Please do not build from this list yet — I'll update this file with exact references, footprints, and quantities (including links to DigiKey/Mouser/Aliexpress) in a follow-up commit.
+Those two files are generated from the schematic/layout in `hardware/pcb/athanV1_PCB/athanV1.kicad_sch` / `hardware/pcb/athanV1_PCB/athanV1.kicad_pcb` and are the **authoritative source** for part numbers, quantities, and footprints when ordering or assembling the board.
+
+If you are sending the board to a PCB assembly house, use the CSV as the reference BOM. If you prefer to browse or tweak the list manually (e.g. to swap vendors or part numbers), open the Excel file.
+
+For enclosure, wiring and general hardware notes, see:
+
+- `README.md` section “Building your own device (hardware and assembly)”
+- `WIRING.md` for pinout and wiring details.
