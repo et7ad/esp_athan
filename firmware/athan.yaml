@@ -655,6 +655,12 @@ script:
 
                   int latest = doc["latest_version"].as<int>();
                   id(update_latest_version) = latest;
+                  if (latest <= ${current_version}) {
+                    id(update_check_state) = 1; // up-to-date
+                    ESP_LOGI("update", "Device up-to-date: %d", latest);
+                    id(update_display).execute();
+                    return;
+                  }
                   // Attempt to read optional firmware URL field
                   std::string fw_url;
                   if (!doc["url"].is<const char*>()) {
@@ -672,15 +678,9 @@ script:
                     id(ui_mode) = 0;
                     return;
                   }
-
-                  if (latest <= ${current_version}) {
-                    id(update_check_state) = 1; // up-to-date
-                    ESP_LOGI("update", "Device up-to-date: %d", latest);
-                  } else {
-                    id(update_url) = fw_url;
-                    id(update_check_state) = 2; // update available
-                    ESP_LOGI("update", "Update available: %d -> %d, url=%s", ${current_version}, latest, fw_url.c_str());
-                  }
+                  id(update_url) = fw_url;
+                  id(update_check_state) = 2; // update available
+                  ESP_LOGI("update", "Update available: %d -> %d, url=%s", ${current_version}, latest, fw_url.c_str());
                   id(update_display).execute();
   - id: run_quyam
     mode: single
