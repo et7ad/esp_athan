@@ -330,7 +330,8 @@ display:
     model: "SSD1306 128x64"
     reset_pin: GPIO16
     address: 0x3D
-    # flip_y: false # default is true
+    # flip_y: false # default is true, to make text correct, need to flip both x and y or neither
+    # flip_x: false # default is true
 
 font:
   - file: "gfonts://Roboto"
