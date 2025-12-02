@@ -522,6 +522,11 @@ globals:
     initial_value: "0"
     restore_value: false
 
+  - id: update_url
+    type: std::string
+    initial_value: "\"\""
+    restore_value: false
+
 
 script:
   - id: refresh_prayer_times_if_needed
@@ -565,20 +570,25 @@ script:
   - id: perform_update
     mode: single
     then:
-      - logger.log: "Perform update placeholder executed"
       - lambda: |-
+          // If we don't have a cached update URL, fail immediately
+          if (id(update_url).empty()) {
+            ESP_LOGE("update", "No update_url cached, aborting perform_update");
+            id(update_check_state) = 0;
+            id(update_display).execute();
+            id(ui_mode) = 0;
+            return;
+          }
           // indicate attempting state while OTA runs
           id(update_check_state) = 4;
           id(update_display).execute();
       - ota.http_request.flash:
           url: !lambda |-
-            char u[256];
-            snprintf(u, sizeof(u), "http://update_url/firmwareV%d.bin", id(update_latest_version));
-            return std::string(u);
+            std::string base = id(update_url);
+            return  base + ".bin";
           md5_url: !lambda |-
-            char m[256];
-            snprintf(m, sizeof(m), "http://update_url/firmwareV%d.md5", id(update_latest_version));
-            return std::string(m);
+            std::string base = id(update_url);
+            return base + ".md5";
       - lambda: |-
           // Clear attempting state after OTA attempt so menu doesn't remain showing "attempting .."
           id(update_check_state) = 0;
@@ -645,12 +655,31 @@ script:
 
                   int latest = doc["latest_version"].as<int>();
                   id(update_latest_version) = latest;
+                  // Attempt to read optional firmware URL field
+                  std::string fw_url;
+                  if (!doc["url"].is<const char*>()) {
+                    ESP_LOGE("update", "No url provided in latest.json");
+                    id(update_check_state) = 0;
+                    id(update_display).execute();
+                    id(ui_mode) = 0;
+                    return;
+                  }
+                  fw_url = doc["url"].as<const char*>();
+                  if (fw_url.empty()) {
+                    ESP_LOGE("update", "Empty url in latest.json");
+                    id(update_check_state) = 0;
+                    id(update_display).execute();
+                    id(ui_mode) = 0;
+                    return;
+                  }
+
                   if (latest <= ${current_version}) {
                     id(update_check_state) = 1; // up-to-date
                     ESP_LOGI("update", "Device up-to-date: %d", latest);
                   } else {
+                    id(update_url) = fw_url;
                     id(update_check_state) = 2; // update available
-                    ESP_LOGI("update", "Update available: %d -> %d", ${current_version}, latest);
+                    ESP_LOGI("update", "Update available: %d -> %d, url=%s", ${current_version}, latest, fw_url.c_str());
                   }
                   id(update_display).execute();
   - id: run_quyam
