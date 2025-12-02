@@ -330,6 +330,7 @@ display:
     model: "SSD1306 128x64"
     reset_pin: GPIO16
     address: 0x3D
+    # flip_v: true
 
 font:
   - file: "gfonts://Roboto"
@@ -1091,10 +1092,12 @@ script:
                 id(oled).print(0, 44, id(font1), line3);
               }
             } else if (id(ui_mode) == 2) {
-              snprintf(line1, sizeof(line1), "Athan %d / 10", id(athan_index) + 1);
-              snprintf(line2, sizeof(line2), "File: %d", 1 + id(athan_index));
+              snprintf(line1, sizeof(line1), "Athan:");
               id(oled).print(0, 0, id(font1), line1);
+              snprintf(line2, sizeof(line2), "%d / 10", id(athan_index) + 1);
+              snprintf(line3, sizeof(line3), "File: %d", 1 + id(athan_index));
               id(oled).print(0, 22, id(font1), line2);
+              id(oled).print(0, 44, id(font1), line3);
             } else if (id(ui_mode) == 3) {
               snprintf(line1, sizeof(line1), "Hourly Tick:");
               id(oled).print(0, 0, id(font1), line1);
