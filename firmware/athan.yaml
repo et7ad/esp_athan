@@ -1096,14 +1096,17 @@ script:
               id(oled).print(0, 0, id(font1), line1);
               id(oled).print(0, 22, id(font1), line2);
             } else if (id(ui_mode) == 3) {
-              if (id(htick_index) == 0)
-                snprintf(line1, sizeof(line1), "Hourly Tick: None");
-              else
-                snprintf(line1, sizeof(line1), "Hourly Tick %d / 10", id(htick_index));
+              snprintf(line1, sizeof(line1), "Hourly Tick:");
               id(oled).print(0, 0, id(font1), line1);
+              if (id(htick_index) == 0) {
+                snprintf(line2, sizeof(line2), "None");
+              } else {
+                snprintf(line2, sizeof(line2), "%d / 10", id(htick_index));
+                snprintf(line3, sizeof(line3), "File: %d", 10 + id(htick_index));
+              }
+              id(oled).print(0, 22, id(font1), line2);
               if (id(htick_index) > 0) {
-                snprintf(line2, sizeof(line2), "File: %d", 10 + id(htick_index));
-                id(oled).print(0, 22, id(font1), line2);
+                id(oled).print(0, 44, id(font1), line3);
               }
             } else if (id(ui_mode) == 4) {
               static const char* locs[15] = {"davis","santaclara","sacramento","masjid4","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
