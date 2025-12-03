@@ -108,6 +108,7 @@ binary_sensor:
   - platform: gpio
     name: "ui_next"
     id: "ui_next"
+    internal: true
     pin:
       number: GPIO14
       mode: INPUT_PULLUP
@@ -172,6 +173,7 @@ binary_sensor:
   - platform: gpio
     name: "ui_select"
     id: "ui_select"
+    internal: true
     pin:
       number: GPIO12
       mode: INPUT_PULLUP
@@ -296,6 +298,7 @@ light:
     name: "Built-in LED"
     output: led_output
     restore_mode: ALWAYS_OFF
+    internal: true
 
 # External relay switch (exposed to Home Assistant)
 switch:
