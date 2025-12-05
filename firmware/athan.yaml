@@ -362,14 +362,14 @@ time:
         - lambda: |-
             id(update_display).execute();
             if (!id(prayer_times_refreshed_at_least_once)) {
-              id(compute_next_prayer).execute();
+              id(compute_coming_prayer).execute();
             }
     # Hourly tick: play once at 0 minute past each hour (HH:00:00). Also refresh prayer times if needed.
     on_time:
       - minutes: 0
         seconds: 0
         then:
-          - script.execute: refresh_prayer_times_if_needed
+          - script.execute: refresh_prayer_times_if_needed  # this runs before the second interval below. so if prayer time is at fixed hour, then this runs first.
           - lambda: |-
               if (!id(athan_playing) && id(htick_file_index) > 0) {
                   id(dfp).play_file(id(htick_file_index));
@@ -556,15 +556,17 @@ script:
           } else {
             id(prayer_times_refreshed_at_least_once) = true;
           }
-          id(compute_next_prayer).execute();
+          id(compute_coming_prayer).execute();
           id(log_prayers).execute();
           id(update_display).execute();
   - id: make_athan
-    mode: restart
+    mode: single
     then:
       - logger.log: "Athan Calling!"
       - lambda: |-
           id(athan_playing) = true;
+          id(dfp).stop();
+          delay(250);
           id(dfp).play_file(id(athan_file_index));
       - light.turn_on: builtin_led
       - delay: 5min
@@ -961,7 +963,7 @@ script:
           ESP_LOGI("prayer","Maghrib: %02d:%02d", id(prayer_hours)[5], id(prayer_minutes)[5]);
           ESP_LOGI("prayer","Isha: %02d:%02d", id(prayer_hours)[6], id(prayer_minutes)[6]);
 
-  - id: compute_next_prayer
+  - id: Jump_to_next_prayer # the only place where when minutes are equal it goes to next prayer is the second interval checking for prayers. Otherwise use top script that if mintues are euqal it stays at same prayer.
     mode: restart
     then:
       - lambda: |-
@@ -976,6 +978,55 @@ script:
             int ph = id(prayer_hours)[i];
             int pm = id(prayer_minutes)[i];
             if ( (h < ph) || (h == ph && m < pm) ) {
+              id(next_prayer_index) = i;
+              id(next_prayer_hour)  = ph;
+              id(next_prayer_minute)= pm;
+              ESP_LOGI("prayer", "Next prayer: index=%d at %02d:%02d", 
+                i, ph, pm);
+              // If the next prayer is Fajr (index 0), schedule "quyam"
+              if (i == 0) {
+                int total = ph * 60 + pm - 25; // 25 minutes before fajr
+                if (total < 0) total += 24 * 60;
+                id(quyam_next_hour) = total / 60;
+                id(quyam_next_minute) = total % 60;
+                id(quyam_triggered) = false;
+                ESP_LOGI("quyam", "Quyam scheduled at %02d:%02d (25min before fajr)", id(quyam_next_hour), id(quyam_next_minute));
+              }
+              return;
+            }
+          }
+          // All prayers passed → tomorrow Fajr
+          id(next_prayer_index) = 0;
+          id(next_prayer_hour)  = id(prayer_hours)[0];
+          id(next_prayer_minute)= id(prayer_minutes)[0];
+          ESP_LOGI("prayer", "Next prayer: TOMORROW FAJR at %02d:%02d",
+            id(next_prayer_hour), id(next_prayer_minute));
+          // Schedule quyam 25 minutes before tomorrow's fajr
+          {
+            int ph = id(next_prayer_hour);
+            int pm = id(next_prayer_minute);
+            int total = ph * 60 + pm - 25;
+            if (total < 0) total += 24 * 60;
+            id(quyam_next_hour) = total / 60;
+            id(quyam_next_minute) = total % 60;
+            id(quyam_triggered) = false;
+            ESP_LOGI("quyam", "Quyam scheduled at %02d:%02d (25min before fajr)", id(quyam_next_hour), id(quyam_next_minute));
+          }
+  - id: compute_coming_prayer # even if a script calls this after the prayer time has arrived in same minute, it will set the next prayer to the one that was just called. The second interval will try to call it again, which is fine because make_athan is a mode: single which would ignore the second call.
+    mode: restart
+    then:
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) {
+           return;
+          }
+          int h = now.hour;
+          int m = now.minute;
+          // Find first prayer time still in the future
+          for (int i = 0; i < 7; i++) {
+            int ph = id(prayer_hours)[i];
+            int pm = id(prayer_minutes)[i];
+            if ( (h < ph) || (h == ph && m <= pm) ) {
               id(next_prayer_index) = i;
               id(next_prayer_hour)  = ph;
               id(next_prayer_minute)= pm;
@@ -1189,7 +1240,7 @@ interval:
                 id(current_athan_prayer_index) = id(next_prayer_index);
               }
               ESP_LOGI("prayer", "Prayer time reached: index=%d!", id(next_prayer_index));
-              id(compute_next_prayer).execute();
+              id(Jump_to_next_prayer).execute();
               id(update_display).execute();
           }
           if (id(q_flag)) {
