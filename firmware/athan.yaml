@@ -22,7 +22,7 @@ esphome:
                   wifi.connected:
             - lambda: |-
                 wifi::global_wifi_component->clear_sta();
-                wifi::global_wifi_component->save_wifi_sta("", "");
+                wifi::global_wifi_component->save_wifi_sta("doesntexist", "passwordfornonetwork");
             - light.turn_off: builtin_led
             - delay: 1s
             - light.turn_on: builtin_led
@@ -79,7 +79,7 @@ wifi:
   password: !secret wifi_password
   ap:
     ssid: "AthanFallbackHotspot"
-    password: "espAthan404"
+    password: "athan404"
     ap_timeout: 2min
   on_connect:
     then:
