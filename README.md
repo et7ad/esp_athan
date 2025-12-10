@@ -14,6 +14,8 @@ If you already **have the device in your hands**, the quickest path is:
 
 After that first setup you normally **do not need to touch Wi‑Fi again**; you only use the two front buttons to change Athan audio, hourly tick, location, volume, or to trigger firmware updates.
 
+If the **built‑in speaker** connected directly to the PCB is not loud or clear enough in your space, you can instead plug an external amplified speaker into the AUX jack (for example, any small PC speaker that has its own power/volume). In that case, please disconnect or switch off the onboard speaker using the small speaker switch on the PCB so that only the external speaker is used.
+
 For more detail:
 
 - **Section 1 – Using the device**: day‑to‑day usage, buttons, menus, Home Assistant.
@@ -104,6 +106,9 @@ When the scheduled time is reached, the DFPlayer plays the chosen Athan file and
 	- From the normal screen: opens the main menu then duals as a select button.
 
 If you leave the menu untouched for about a minute, it closes automatically and goes back to the normal screen.
+
+> **Note about speakers and the AUX jack**  
+> The PCB supports directly-connected speaker **and** an AUX jack for an external amplified speaker. If the onboard speaker is not good enough (too quiet or distorted), you can plug an external powered speaker into the AUX jack and then disconnect or switch off the onboard speaker using the speaker switch on the PCB so only the external speaker is active.
 
 > **Note about the `Q:` option in the main menu**  
 > Some builds expose an advanced `Q:` entry in the main menu. This is **off by default**, and normal day‑to‑day use does **not** require changing it. If it’s ever turned **On** accidentally and you are not sure what it does, the device might behave a bit differently from what you expect. In that case, you can set it back to **Off** from the same menu.
