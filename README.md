@@ -105,6 +105,8 @@ When the scheduled time is reached, the DFPlayer plays the chosen Athan file and
 
 If you leave the menu untouched for about a minute, it closes automatically and goes back to the normal screen.
 
+> **Note about the `Q:` option in the main menu**  
+> Some builds expose an advanced `Q:` entry in the main menu. This is **off by default**, and normal day‑to‑day use does **not** require changing it. If it’s ever turned **On** accidentally and you are not sure what it does, the device might behave a bit differently from what you expect. In that case, you can set it back to **Off** from the same menu.
 ### 1.4 Main menu items
 
 The main menu has these entries, cycled with **Next** and chosen with **Select**:
@@ -114,7 +116,8 @@ The main menu has these entries, cycled with **Next** and chosen with **Select**
 3. **Location** – choose which mosque/location profile the device should use.
 4. **Update firmware** – check if a newer firmware version is available and, if so, apply it over the air.
 5. **Volume** – change volume in 10% steps.
-6. **Exit menu** – go back to the main screen.
+6. **(Optional) Q:** – an internal/advanced setting. It is **false/off by default** and you normally do **not** need to change it. If you happen to turn it **On** and then notice the device behaving in a way you did not expect, simply switch it back **Off** from this menu and things will return to normal.
+7. **Exit menu** – go back to the main screen.
 
 #### 1.4.1 Choosing Athan audio
 
@@ -167,7 +170,8 @@ Because this is an ESPHome device, you can add it to Home Assistant in the usual
 Out of the box the following are especially useful:
 
 - **A switch for the external relay** (`external_relay`).  
-	You can use this to switch a small external relay module, an amplifier, or another external circuit.
+	You can use this to switch a small external relay module, an amplifier, or another external circuit. I usually use it with the `IoT Power Strip` shown in the picture (can easily find on different stores).
+	![IoT Power Strip](images/IoT_power_strip.jpg)
 - **API / OTA support** via ESPHome for upgrades.
 - **web server** I have this disabled which is an alternative way to control the relay from a browser. However, if you want me to enable it, let me know and I can add it back in next update.
 
