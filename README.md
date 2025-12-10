@@ -76,7 +76,7 @@ If I already assembled and sent you a device, the microSD card inside the DFPlay
 
 ### 1.1 Power‑up and Wi‑Fi
 
-- On first power‑up the device tries to connect to the Wi‑Fi and fails (no credentials yet). It then starts a temporary access point called `AthanFallbackHotspot`.
+- On first power‑up the device tries to connect to the Wi‑Fi and fails (no credentials yet). It then starts a temporary access point called `AthanFallbackHotspot`. The corresponding password is `athan404`.
 - Connect to that network from your phone or laptop. A captive portal should open automatically; if not, visit `http://192.168.4.1`.
 - Choose your home Wi‑Fi SSID, enter the password, and save. The device will reboot and connect to your Wi‑Fi.
 - If Wi‑Fi is down it still shows time once it has synced at least once; it will retry and update prayer times automatically when it comes back.
