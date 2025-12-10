@@ -1,9 +1,9 @@
-esphome/noise-c@0.1.10
 ESP32Async/ESPAsyncWebServer@3.7.10
-ESP8266HTTPClient
+esphome/noise-c@0.1.10
 Wire
-ESP8266mDNS
-DNSServer
-ESP8266WiFi
-bblanchon/ArduinoJson@7.4.2
+ESP8266HTTPClient
 ESP32Async/ESPAsyncTCP@2.0.0
+ESP8266WiFi
+DNSServer
+ESP8266mDNS
+bblanchon/ArduinoJson@7.4.2
