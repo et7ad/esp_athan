@@ -1,6 +1,22 @@
 substitutions:
   current_version: "1"
 
+  # ---------------------------------------------------------------
+  # NOTE for people just changing the OLED / SSD1306 display
+  # ---------------------------------------------------------------
+  # The display configuration are further down in this file under
+  # the `display:` section with `platform: ssd1306_i2c`.
+  #
+  # Common things you may want to tweak:
+  #   - I2C address: the line `address: ` can be changed between
+  #     `0x3C` and `0x3D` depending on your model.
+  #   - Orientation: uncomment and adjust `flip_x` / `flip_y` in
+  #     the same `display:` block if your screen is mounted upside
+  #     down or mirrored (to rotate 180° you usually flip both).
+  #
+  # You normally do NOT need to touch other parts of this file if
+  # you only want to adapt the SSD1306 display.
+
 esphome:
   name: athan
   friendly_name: athan
