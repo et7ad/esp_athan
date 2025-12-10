@@ -6,8 +6,8 @@ I could not find an ESPHome-based project that let me keep my own JSON files for
 
 If you already **have the device in your hands**, the quickest path is:
 
-1. Plug it into power and wait about **1–2 minutes**.
-2. A temporary Wi‑Fi network (access point) called something like `AthanFallbackHotspot` will appear.
+1. Plug it into power and wait about **2–3 minutes**.
+2. A temporary Wi‑Fi network (access point) called something like `AthanFallbackHotspot` will appear. The corresponding password is `athan404`.
 3. Connect to that network from your phone/laptop; a **captive portal** will open (or visit `192.168.4.1` in a browser).
 4. Choose your home Wi‑Fi, enter the password, and save.
 5. The device will reboot, connect to your Wi‑Fi, fetch the correct time and prayer JSONs, and then start showing the current time and next prayer.
