@@ -216,6 +216,60 @@ If you prefer breadboard wiring instead of the PCB, you can still follow the sam
 
 You can open these in KiCad (it's an open source tool), tweak dimensions, circuit, and export new manufacturing files as needed.
 
+### 2.4 Programming, DFPlayer and UART jumpers
+
+This subsection is mainly for people assembling and flashing their own boards. The order in which you solder and program things matters a bit because the DFPlayer shares the same hardware UART pins as the ESP8266 programming header.
+
+- The DFPlayer’s RX/TX are connected to the ESP8266 hardware UART on `GPIO1` (TX) and `GPIO3` (RX).
+- Those same pins are what USB‑to‑serial programmers use to flash the ESP (`ESP_TX` / `ESP_RX`).
+- Once the DFPlayer is soldered to those lines, direct programming over the serial header becomes difficult unless you temporarily disconnect it.
+
+Because of that, the **recommended order** when building a fresh board is:
+
+1. Solder the ESP8266 module, power circuitry and headers.
+2. **Do not solder the DFPlayer yet.**
+3. Connect a USB‑to‑serial adapter to the programming pins on the PCB (`ESP_VCC`, `GND`,`GPIO0`, `ESP_RX`, `ESP_TX`).
+4. Flash the firmware at least once over the serial connection.
+5. Only after that, solder the DFPlayer module in place.
+
+Any common 3.3 V USB‑to‑TTL serial adapter will work (for example modules based on CP2102, CH340, FT232, etc.). Make sure it is set to **3.3 V logic** and matches the board’s `ESP_VCC` level 3.3 V (do not feed raw 5 V directly into the ESP8266 3.3 V rail).
+
+To put the ESP8266 into flashing mode when using the pins directly:
+
+- Connect `GND` on the adapter to `GND` on the board.
+- Connect the adapter’s TX to `ESP_RX` and adapter’s RX to `ESP_TX`.
+- Hold `GPIO0` low (tie to `GND`).
+- Provide 3.3 V to `ESP_VCC`.
+- Make sure to hold `GPIO0` low (tie to `GND`) while you power‑up; this makes the ESP8266 boot into the serial bootloader.
+- Then use your chosen tool (ESPHome, `esptool.py`, web flasher, etc.) to upload the firmware. A convenience tool I use is `web.esphome.io` in a supported browser.
+
+Starting from the **second PCB revision (including the current one)**, the UART lines going to the DFPlayer go through a small solder jumper. That jumper is **bridged by default** so the ESP UART talks to the DFPlayer once everything is assembled.
+
+- If you follow the recommended order above, simply **flash the ESP first**, then solder the DFPlayer, and leave the jumper as‑is.
+- If you already soldered the DFPlayer and need to re‑flash via the serial header, you can **cut the solder jumper** that ties TX/RX to the DFPlayer pads, flash the ESP again, and then re‑bridge the jumper with a small blob of solder afterwards.
+- As another fallback, you can temporarily desolder the DFPlayer module itself, program the ESP, and then resolder it. The jumper allows for a clean way to isolate it without removing the whole module.
+
+Once the firmware has been flashed **at least once**, you have several **OTA update** options that do not require touching the UART again:
+
+- Normal OTA over Wi‑Fi using ESPHome (CLI/Home Assistant add‑on) as long as the device can reach your network.
+- Fallback AP / captive‑portal OTA: even without internet (or after resetting by pressing both buttons together while powering up), if the device boots into the ESPHome captive portal (e.g. `AthanFallbackHotspot`), you can connect to `http://192.168.4.1` from a laptop and upload a new firmware `.bin` file from there.
+
+As of the software programming in this project, you can flash the firmware in three main ways:
+
+- Build from source using `firmware/athan.yaml` with ESPHome (local or Home Assistant add‑on), and flash over serial the first time then OTA afterwards.
+- Or use a pre‑built binary such as `firmware/athanV1.bin` and flash it using:
+	- `web.esphome.io` (in a supported browser, with your USB‑to‑serial adapter selected), or
+	- any other ESP8266 flashing tool that can write a `.bin` file via the serial bootloader.
+- Using the c build included in the firmware folder with vscode platformio.
+
+#### 2.4.1 SSD1306 display footprints on the PCB
+
+The PCB is designed to accept several common SSD1306 module footprints so you can reuse whatever display you have on hand:
+
+- **8‑pin modules:** a full 8‑pin header footprint.
+- **4‑pin I2C modules:** two separate 4‑pin footprints with the two most popular pin orders (for example `GND–VCC–SCL–SDA` and `VCC–GND–SCL–SDA`). Use the one that matches the silkscreen on your display.
+- **7‑pin SPI module:** a 7‑pin footprint is also present, but the current firmware only uses the I2C interface; SPI SSD1306 modules are **not** supported in the provided `athan.yaml` (however changing that part of the code should be straightforward using any AI assistant).
+
 ---
 
 ## 3. SD‑card for audio (DFPlayer)
