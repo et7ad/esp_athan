@@ -1,4 +1,4 @@
-26774636306700412
+26776401715067383
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -60730,6 +60730,13 @@ Adafruit SSD1306 OLED 1.3 inch 128x64 I2C & SPI https://learn.adafruit.com/monoc
 Adafruit SSD1306 OLED 1.3 inch 128x64 I2C & SPI 
 0
 8
+8
+Display
+Adafruit_SSD1306_multi
+Adafruit SSD1306 OLED 1.3 inch 128x64 I2C & SPI https://learn.adafruit.com/monochrome-oled-breakouts/downloads
+Adafruit SSD1306 OLED 1.3 inch 128x64 I2C & SPI 
+0
+23
 8
 Display
 CR2013-MI2120
