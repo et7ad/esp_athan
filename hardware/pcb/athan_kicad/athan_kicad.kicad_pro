@@ -468,7 +468,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "athanV1.kicad_pro",
+    "filename": "athan_kicad.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -507,7 +507,7 @@
       "plot": "fab_files/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "athanV1.step",
+      "step": "athanV2.step",
       "svg": "",
       "vrml": "athanV1.wrl"
     },
