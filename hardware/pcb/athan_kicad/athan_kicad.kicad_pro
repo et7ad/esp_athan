@@ -58,7 +58,16 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "footprint_type_mismatch|67700000|78200000|01359eb8-0bb7-458d-a4d5-98c1f4888c6f|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "missing_courtyard|102550000|80050000|18856388-9cf7-4873-ae22-7082fa667134|00000000-0000-0000-0000-000000000000",
+          ""
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -78,7 +87,7 @@
         "footprint": "error",
         "footprint_filters_mismatch": "ignore",
         "footprint_symbol_mismatch": "warning",
-        "footprint_type_mismatch": "ignore",
+        "footprint_type_mismatch": "error",
         "hole_clearance": "error",
         "hole_to_hole": "warning",
         "holes_co_located": "warning",
@@ -92,13 +101,13 @@
         "malformed_courtyard": "warning",
         "microvia_drill_out_of_range": "error",
         "mirrored_text_on_front_layer": "warning",
-        "missing_courtyard": "ignore",
+        "missing_courtyard": "error",
         "missing_footprint": "warning",
         "net_conflict": "warning",
         "nonmirrored_text_on_back_layer": "warning",
-        "npth_inside_courtyard": "ignore",
+        "npth_inside_courtyard": "error",
         "padstack": "warning",
-        "pth_inside_courtyard": "ignore",
+        "pth_inside_courtyard": "error",
         "shorting_items": "error",
         "silk_edge_clearance": "warning",
         "silk_over_copper": "warning",
@@ -189,6 +198,8 @@
       "track_widths": [
         0.0,
         0.3,
+        0.35,
+        0.4,
         0.5,
         1.0,
         2.0
@@ -504,7 +515,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "fab_files/",
+      "plot": "fab_files/athanV2/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "athanV2.step",
