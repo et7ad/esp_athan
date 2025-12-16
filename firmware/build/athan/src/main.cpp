@@ -249,8 +249,8 @@ void setup() {
   //             then:
   //               - logger.log:
   //                   format: on resetting wifi
-  //                   logger_id: logger_logger_id
   //                   tag: main
+  //                   logger_id: logger_logger_id
   //                   level: DEBUG
   //                   args: []
   //                 type_id: lambdaaction_id_2
@@ -294,8 +294,8 @@ void setup() {
   //                 type_id: light_lightcontrolaction_id_5
   //               - logger.log:
   //                   format: resetting
-  //                   logger_id: logger_logger_id
   //                   tag: main
+  //                   logger_id: logger_logger_id
   //                   level: DEBUG
   //                   args: []
   //                 type_id: lambdaaction_id_4
@@ -394,8 +394,8 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: WiFi connected!
-  //           logger_id: logger_logger_id
   //           tag: main
+  //           logger_id: logger_logger_id
   //           level: DEBUG
   //           args: []
   //         type_id: lambdaaction_id_6
@@ -2152,8 +2152,8 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Athan Calling!
-  //           logger_id: logger_logger_id
   //           tag: main
+  //           logger_id: logger_logger_id
   //           level: DEBUG
   //           args: []
   //         type_id: lambdaaction_id_14
@@ -2228,8 +2228,8 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Starting remote update check
-  //           logger_id: logger_logger_id
   //           tag: main
+  //           logger_id: logger_logger_id
   //           level: DEBUG
   //           args: []
   //         type_id: lambdaaction_id_20
@@ -2333,8 +2333,8 @@ void setup() {
   //           then:
   //             - logger.log:
   //                 format: Quyam starting (Q flag is ON)
-  //                 logger_id: logger_logger_id
   //                 tag: main
+  //                 logger_id: logger_logger_id
   //                 level: DEBUG
   //                 args: []
   //               type_id: lambdaaction_id_23
@@ -2342,7 +2342,7 @@ void setup() {
   //                 id: external_relay
   //               type_id: switch__turnonaction_id_2
   //             - lambda: !lambda |-
-  //                 id(dfp).play_file(25);
+  //                 id(dfp).play_file(random(25, 35));
   //               type_id: lambdaaction_id_24
   //             - delay: 15min
   //               type_id: delayaction_id_10
@@ -2352,8 +2352,8 @@ void setup() {
   //           else:
   //             - logger.log:
   //                 format: Q flag is OFF — skipping Quyam actions
-  //                 logger_id: logger_logger_id
   //                 tag: main
+  //                 logger_id: logger_logger_id
   //                 level: DEBUG
   //                 args: []
   //               type_id: lambdaaction_id_25
@@ -2366,8 +2366,8 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Attempting to fetch timezone for previewed location
-  //           logger_id: logger_logger_id
   //           tag: main
+  //           logger_id: logger_logger_id
   //           level: DEBUG
   //           args: []
   //         type_id: lambdaaction_id_26
@@ -2954,7 +2954,7 @@ void setup() {
   //   {}
   http_request_otahttprequestcomponent_id->set_parent(http_request_httprequestarduino_id);
   lambdacondition_id = new StatelessLambdaCondition<>([]() -> bool {
-      #line 90 "/config/athan.yaml"
+      #line 106 "/config/athan.yaml"
       return sntp_time->now().is_valid();
   });
   waituntilaction_id_2 = new WaitUntilAction<>(lambdacondition_id);
@@ -3231,7 +3231,7 @@ void setup() {
   update_url->set_component_source(LOG_STR("globals"));
   App.register_component(update_url);
   lambdaaction_id_13 = new StatelessLambdaAction<>([]() -> void {
-      #line 542 "/config/athan.yaml"
+      #line 558 "/config/athan.yaml"
       auto now = sntp_time->now();
       if (!now.is_valid()) {
        return;
@@ -3260,7 +3260,7 @@ void setup() {
       ESP_LOGD("main", "Athan Calling!");
   });
   lambdaaction_id_15 = new StatelessLambdaAction<>([]() -> void {
-      #line 568 "/config/athan.yaml"
+      #line 584 "/config/athan.yaml"
       athan_playing->value() = true;
       dfp->stop();
       delay(250);
@@ -3275,13 +3275,13 @@ void setup() {
   light_lightcontrolaction_id_11 = new light::LightControlAction<>(builtin_led);
   light_lightcontrolaction_id_11->set_state(false);
   lambdaaction_id_16 = new StatelessLambdaAction<>([]() -> void {
-      #line 576 "/config/athan.yaml"
+      #line 592 "/config/athan.yaml"
       athan_playing->value() = false;
   });
   automation_id_9->add_actions({lambdaaction_id_14, lambdaaction_id_15, light_lightcontrolaction_id_10, delayaction_id_9, light_lightcontrolaction_id_11, lambdaaction_id_16});
   automation_id_10 = new Automation<>(perform_update);
   lambdaaction_id_17 = new StatelessLambdaAction<>([]() -> void {
-      #line 582 "/config/athan.yaml"
+      #line 598 "/config/athan.yaml"
        
       if (update_url->value().empty()) {
         ESP_LOGE("update", "No update_url cached, aborting perform_update");
@@ -3296,17 +3296,17 @@ void setup() {
   });
   http_request_otahttprequestcomponentflashaction_id = new http_request::OtaHttpRequestComponentFlashAction<>(http_request_otahttprequestcomponent_id);
   http_request_otahttprequestcomponentflashaction_id->set_md5_url([]() -> std::string {
-      #line 598 "/config/athan.yaml"
+      #line 614 "/config/athan.yaml"
       std::string base = update_url->value();
       return base + ".md5";
   });
   http_request_otahttprequestcomponentflashaction_id->set_url([]() -> std::string {
-      #line 595 "/config/athan.yaml"
+      #line 611 "/config/athan.yaml"
       std::string base = update_url->value();
       return  base + ".bin";
   });
   lambdaaction_id_18 = new StatelessLambdaAction<>([]() -> void {
-      #line 601 "/config/athan.yaml"
+      #line 617 "/config/athan.yaml"
        
       update_check_state->value() = 0;
       ui_mode->value() = 0;
@@ -3315,7 +3315,7 @@ void setup() {
   automation_id_10->add_actions({lambdaaction_id_17, http_request_otahttprequestcomponentflashaction_id, lambdaaction_id_18});
   automation_id_11 = new Automation<>(test_script);
   lambdaaction_id_19 = new StatelessLambdaAction<>([]() -> void {
-      #line 610 "/config/athan.yaml"
+      #line 626 "/config/athan.yaml"
        
       return;
   });
@@ -3330,7 +3330,7 @@ void setup() {
   http_request_httprequestsendaction_id->set_max_response_buffer_size(1024);
   automation_id_12 = new Automation<std::shared_ptr<http_request::HttpContainer>>(http_request_httprequestsendaction_id->get_success_trigger());
   lambdaaction_id_21 = new StatelessLambdaAction<std::shared_ptr<http_request::HttpContainer>>([](std::shared_ptr<http_request::HttpContainer> response) -> void {
-      #line 623 "/config/athan.yaml"
+      #line 639 "/config/athan.yaml"
       ESP_LOGI("update", "Reading latest.json response...");
       std::string json_text;
       char buf[128];
@@ -3406,11 +3406,11 @@ void setup() {
   automation_id_13->add_actions({lambdaaction_id_20, http_request_httprequestsendaction_id});
   automation_id_14 = new Automation<>(run_quyam);
   lambdaaction_id_22 = new StatelessLambdaAction<>([]() -> void {
-      #line 696 "/config/athan.yaml"
+      #line 712 "/config/athan.yaml"
       quyam_triggered->value() = true;
   });
   lambdacondition_id_3 = new StatelessLambdaCondition<>([]() -> bool {
-      #line 699 "/config/athan.yaml"
+      #line 715 "/config/athan.yaml"
       return q_flag->value();
   });
   ifaction_id_2 = new IfAction<>(lambdacondition_id_3);
@@ -3419,8 +3419,8 @@ void setup() {
   });
   switch__turnonaction_id_2 = new switch_::TurnOnAction<>(external_relay);
   lambdaaction_id_24 = new StatelessLambdaAction<>([]() -> void {
-      #line 703 "/config/athan.yaml"
-      dfp->play_file(25);
+      #line 719 "/config/athan.yaml"
+      dfp->play_file(random(25, 35));
   });
   delayaction_id_10 = new DelayAction<>();
   delayaction_id_10->set_component_source(LOG_STR("script"));
@@ -3439,7 +3439,7 @@ void setup() {
   });
   http_request_httprequestsendaction_id_2 = new http_request::HttpRequestSendAction<>(http_request_httprequestarduino_id);
   http_request_httprequestsendaction_id_2->set_url([]() -> std::string {
-      #line 717 "/config/athan.yaml"
+      #line 733 "/config/athan.yaml"
       char u[256];
       static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
       int li = location_index->value();
@@ -3455,7 +3455,7 @@ void setup() {
   http_request_httprequestsendaction_id_2->set_max_response_buffer_size(512);
   automation_id_15 = new Automation<std::shared_ptr<http_request::HttpContainer>>(http_request_httprequestsendaction_id_2->get_success_trigger());
   lambdaaction_id_27 = new StatelessLambdaAction<std::shared_ptr<http_request::HttpContainer>>([](std::shared_ptr<http_request::HttpContainer> response) -> void {
-      #line 732 "/config/athan.yaml"
+      #line 748 "/config/athan.yaml"
       ESP_LOGI("tz", "Reading timezone response...");
       
       std::string json_text;
@@ -3523,7 +3523,7 @@ void setup() {
   });
   automation_id_15->add_actions({lambdaaction_id_27});
   lambdaaction_id_28 = new StatelessLambdaAction<>([]() -> void {
-      #line 797 "/config/athan.yaml"
+      #line 813 "/config/athan.yaml"
       ui_mode->value() = 0;
       update_display->execute();
   });
@@ -3531,7 +3531,7 @@ void setup() {
   automation_id_18 = new Automation<>(load_prayer_times);
   http_request_httprequestsendaction_id_3 = new http_request::HttpRequestSendAction<>(http_request_httprequestarduino_id);
   http_request_httprequestsendaction_id_3->set_url([]() -> std::string {
-      #line 805 "/config/athan.yaml"
+      #line 821 "/config/athan.yaml"
       auto now = sntp_time->now();
       int year = now.year;
       int day  = now.day_of_year;
@@ -3552,7 +3552,7 @@ void setup() {
   http_request_httprequestsendaction_id_3->set_max_response_buffer_size(4096);
   automation_id_17 = new Automation<std::shared_ptr<http_request::HttpContainer>>(http_request_httprequestsendaction_id_3->get_success_trigger());
   lambdaaction_id_29 = new StatelessLambdaAction<std::shared_ptr<http_request::HttpContainer>>([](std::shared_ptr<http_request::HttpContainer> response) -> void {
-      #line 825 "/config/athan.yaml"
+      #line 841 "/config/athan.yaml"
       ESP_LOGI("prayer", "Reading response safely...");
       
       std::string json_text;
@@ -3687,7 +3687,7 @@ void setup() {
   automation_id_18->add_actions({http_request_httprequestsendaction_id_3});
   automation_id_19 = new Automation<>(log_prayers);
   lambdaaction_id_30 = new StatelessLambdaAction<>([]() -> void {
-      #line 958 "/config/athan.yaml"
+      #line 974 "/config/athan.yaml"
       ESP_LOGI("prayer","Prayer times for today:");
       ESP_LOGI("prayer","Fajr: %02d:%02d", prayer_hours->value()[0], prayer_minutes->value()[0]);
       ESP_LOGI("prayer","Shrouk: %02d:%02d", prayer_hours->value()[1], prayer_minutes->value()[1]);
@@ -3700,7 +3700,7 @@ void setup() {
   automation_id_19->add_actions({lambdaaction_id_30});
   automation_id_20 = new Automation<>(Jump_to_next_prayer);
   lambdaaction_id_31 = new StatelessLambdaAction<>([]() -> void {
-      #line 971 "/config/athan.yaml"
+      #line 987 "/config/athan.yaml"
       auto now = sntp_time->now();
       if (!now.is_valid()) {
        return;
@@ -3750,7 +3750,7 @@ void setup() {
   automation_id_20->add_actions({lambdaaction_id_31});
   automation_id_21 = new Automation<>(compute_coming_prayer);
   lambdaaction_id_32 = new StatelessLambdaAction<>([]() -> void {
-      #line 1020 "/config/athan.yaml"
+      #line 1036 "/config/athan.yaml"
       auto now = sntp_time->now();
       if (!now.is_valid()) {
        return;
@@ -3800,7 +3800,7 @@ void setup() {
   automation_id_21->add_actions({lambdaaction_id_32});
   automation_id_22 = new Automation<>(update_display);
   lambdaaction_id_33 = new StatelessLambdaAction<>([]() -> void {
-      #line 1070 "/config/athan.yaml"
+      #line 1086 "/config/athan.yaml"
       oled->clear();
       auto now = sntp_time->now();
       if (!now.is_valid() && ui_mode->value()==0) {
@@ -3940,7 +3940,7 @@ void setup() {
   });
   automation_id_22->add_actions({lambdaaction_id_33});
   lambdaaction_id_34 = new StatelessLambdaAction<>([]() -> void {
-      #line 1214 "/config/athan.yaml"
+      #line 1230 "/config/athan.yaml"
       auto now = sntp_time->now();
       if (!now.is_valid()) {
        return;
@@ -3993,7 +3993,7 @@ void setup() {
   App.register_component(interval_intervaltrigger_id_2);
   automation_id_24 = new Automation<>(interval_intervaltrigger_id_2);
   lambdaaction_id_35 = new StatelessLambdaAction<>([]() -> void {
-      #line 1260 "/config/athan.yaml"
+      #line 1276 "/config/athan.yaml"
       auto now = sntp_time->now();
       if (!now.is_valid()) {
        update_display->execute();
@@ -4004,7 +4004,7 @@ void setup() {
   interval_intervaltrigger_id_2->set_update_interval(60000);
   interval_intervaltrigger_id_2->set_startup_delay(0);
   lambdaaction_id = new StatelessLambdaAction<>([]() -> void {
-      #line 10 "/config/athan.yaml"
+      #line 26 "/config/athan.yaml"
       ESP_LOGI("tz", "Applying saved timezone on boot: '%s'", selected_location_tz->value().c_str());
       sntp_time->set_timezone(selected_location_tz->value().c_str());
   });
@@ -4021,7 +4021,7 @@ void setup() {
   waituntilaction_id->set_component_source(LOG_STR("esphome.coroutine"));
   App.register_component(waituntilaction_id);
   lambdaaction_id_3 = new StatelessLambdaAction<>([]() -> void {
-      #line 24 "/config/athan.yaml"
+      #line 40 "/config/athan.yaml"
       wifi::global_wifi_component->clear_sta();
       wifi::global_wifi_component->save_wifi_sta("doesntexist", "passwordfornonetwork");
   });
@@ -4063,7 +4063,7 @@ void setup() {
   script_scriptexecuteaction_id = new script::ScriptExecuteAction<script::Script<>>(update_display);
   script_scriptexecuteaction_id->set_args();
   lambdaaction_id_5 = new StatelessLambdaAction<>([]() -> void {
-      #line 44 "/config/athan.yaml"
+      #line 60 "/config/athan.yaml"
       int vol = (volume_level->value() * 30 + 50) / 100;
       if (vol < 0) vol = 0; if (vol > 30) vol = 30;
       dfp->set_volume(vol);
@@ -4091,7 +4091,7 @@ void setup() {
   light_lightcontrolaction_id_9->set_state(false);
   automation_id->add_actions({lambdaaction_id, ifaction_id, delayaction_id_5, script_scriptexecuteaction_id, lambdaaction_id_5, light_lightcontrolaction_id_6, delayaction_id_6, light_lightcontrolaction_id_7, delayaction_id_7, light_lightcontrolaction_id_8, delayaction_id_8, light_lightcontrolaction_id_9});
   lambdaaction_id_7 = new StatelessLambdaAction<>([]() -> void {
-      #line 120 "/config/athan.yaml"
+      #line 136 "/config/athan.yaml"
       ui_last_activity->value() = millis();
        
       if (ui_mode->value() == 0) {
@@ -4156,7 +4156,7 @@ void setup() {
   ui_next->set_pin(esphome_esp8266_esp8266gpiopin_id_3);
   ui_next->set_interrupt_type(gpio::INTERRUPT_ANY_EDGE);
   lambdaaction_id_8 = new StatelessLambdaAction<>([]() -> void {
-      #line 185 "/config/athan.yaml"
+      #line 201 "/config/athan.yaml"
       ui_last_activity->value() = millis();
        
       if (ui_mode->value() == 0) {
@@ -4279,7 +4279,7 @@ void setup() {
   ui_select->set_pin(esphome_esp8266_esp8266gpiopin_id_4);
   ui_select->set_interrupt_type(gpio::INTERRUPT_ANY_EDGE);
   lambdaaction_id_11 = new StatelessLambdaAction<>([]() -> void {
-      #line 375 "/config/athan.yaml"
+      #line 391 "/config/athan.yaml"
       if (!athan_playing->value() && htick_file_index->value() > 0) {
           dfp->play_file(htick_file_index->value());
       }
@@ -4296,7 +4296,7 @@ void setup() {
   App.register_component(time_crontrigger_id_2);
   automation_id_7 = new Automation<>(time_crontrigger_id_2);
   lambdaaction_id_12 = new StatelessLambdaAction<>([]() -> void {
-      #line 381 "/config/athan.yaml"
+      #line 397 "/config/athan.yaml"
       update_display->execute();
       if (!prayer_times_refreshed_at_least_once->value()){
         refresh_prayer_times_if_needed->execute();
@@ -4309,7 +4309,7 @@ void setup() {
   App.register_component(time_synctrigger_id);
   automation_id_5 = new Automation<>(time_synctrigger_id);
   lambdaaction_id_9 = new StatelessLambdaAction<>([]() -> void {
-      #line 352 "/config/athan.yaml"
+      #line 368 "/config/athan.yaml"
       if (!time_zone_changed_at_boot->value()) {
         ESP_LOGI("tz", "Applying persisted timezone after time sync: '%s'", selected_location_tz->value().c_str());
         sntp_time->set_timezone(selected_location_tz->value().c_str());
@@ -4320,7 +4320,7 @@ void setup() {
   script_scriptexecuteaction_id_3 = new script::ScriptExecuteAction<script::Script<>>(update_display);
   script_scriptexecuteaction_id_3->set_args();
   lambdacondition_id_2 = new StatelessLambdaCondition<>([]() -> bool {
-      #line 362 "/config/athan.yaml"
+      #line 378 "/config/athan.yaml"
       return sntp_time->now().is_valid();
   });
   waituntilaction_id_3 = new WaitUntilAction<>(lambdacondition_id_2);
@@ -4328,7 +4328,7 @@ void setup() {
   waituntilaction_id_3->set_component_source(LOG_STR("time"));
   App.register_component(waituntilaction_id_3);
   lambdaaction_id_10 = new StatelessLambdaAction<>([]() -> void {
-      #line 364 "/config/athan.yaml"
+      #line 380 "/config/athan.yaml"
       update_display->execute();
       if (!prayer_times_refreshed_at_least_once->value()) {
         compute_coming_prayer->execute();

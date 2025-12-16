@@ -716,7 +716,7 @@ script:
           then:
             - logger.log: "Quyam starting (Q flag is ON)"
             - switch.turn_on: external_relay
-            - lambda: 'id(dfp).play_file(25);'
+            - lambda: 'id(dfp).play_file(random(25, 35));'
             - delay: 15min
             - switch.turn_off: external_relay
             
