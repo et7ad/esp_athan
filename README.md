@@ -362,7 +362,7 @@ Note: The TZ string format follows the POSIX convention used in many Unix‑like
 In `athan.yaml` you will see two small arrays of location keys:
 
 ```cpp
-"davis","santaclara","sacramento","masjid4",...,"masjid15"
+"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6",...,"masjid15"
 ```
 
 They are used to build URLs like:
@@ -390,14 +390,16 @@ Again, the directory layout and JSON fields themselves are defined in [prayertim
 
 The firmware currently exposes 15 slots. Some are already in active use, others are placeholders for future mosques.
 
-| Slot | Key         | Mosque / description                     | Maps link (example) |
-|------|------------|-------------------------------------------|----------------------|
-| 1    | `davis`     | Islamic Center of Davis                  | https://maps.app.goo.gl/TS9X4CXDYKfkRHph6 |
-| 2    | `santaclara`| Santa Clara area mosque (to be detailed) | (link to be added)   |
-| 3    | `sacramento`| Sacramento area mosque (to be detailed)  | (link to be added)   |
-| 4–15 | `masjid4`…`masjid15` | Reserved / placeholders                 | (to be assigned)     |
+| Slot | Key            | Mosque / description                                                              | Maps link (example)                                    |
+|------|----------------|----------------------------------------------------------------------------------|--------------------------------------------------------|
+| 1    | `davis`        | Islamic Center of Davis - prayer times downloaded from Dr. Albara Ramli’s website: <https://albara.ramli.net/ar/> matching his [Iqamah Times](https://albara.ramli.net/iqamah/) App                                                         | https://maps.app.goo.gl/TS9X4CXDYKfkRHph6             |
+| 2    | `sclaramca`    | Muslim Community Association (MCA), Santa Clara — prayer times from [mcabayarea.org](https://www.mcabayarea.org) | https://maps.app.goo.gl/86ttxawSJ9t7fXnEA             |
+| 3    | `sclaraalnoor` | Masjid Al-Noor, Santa Clara — prayer times from [mcabayarea.org](https://www.mcabayarea.org)   | https://maps.app.goo.gl/ZAGiTFhHkNFhijHBA             |
+| 4    | `sacramento`   | Sacramento area mosque (to be detailed)                                         | (link to be added)                                    |
+| 5    | `cairo`        | Cairo example profile (to be detailed)                                          | (link to be added)                                    |
+| 6–15 | `masjid6`…`masjid15` | Reserved / placeholders                                                          | (to be assigned)                                      |
 
-I plan InSha2Allah, to keep maintaining the JSON files for the mosques in this table. If you would like one of the placeholder slots (4–15) to be used for your mosque, please open an issue or contact me with the details, and I will try to add it and include it in a later firmware build.
+I plan InSha2Allah, to keep maintaining the JSON files for the mosques in this table. If you would like one of the placeholder slots (6–15) to be used for your mosque, please open an issue or contact me with the details, and I will try to add it and include it in a later firmware build.
 
 ---
 
