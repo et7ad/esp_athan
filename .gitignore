@@ -45,3 +45,7 @@ fab_files/
 athan_kicad-backups/
 fab_files.zip
 SDCard_files/
+**/.pioenvs/athan/firmware.bin
+**/.pioenvs/athan/firmware.elf
+**/.pioenvs/athan/firmware.factory.bin
+**/.pioenvs/athan/firmware.ota.bin
