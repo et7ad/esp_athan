@@ -316,21 +316,39 @@ For the Davis mosque, the starting data was taken from Dr. Albara Ramli’s webs
 
 ### 4.2 JSON structure
 
-Each **daily prayer JSON** looks roughly like this (simplified example):
+The **authoritative and detailed prayer-times JSON format** is documented in [prayertimes_specs.md](prayertimes_specs.md). If you are generating your own files or running your own server, **always follow that specification exactly** so the firmware can parse everything correctly.
+
+In short:
+
+- Each **daily prayer JSON** is a single JSON object (not an array).
+- All values are strings.
+- It includes date fields (`year`, `month`, `day`, `#` for weekday) and a full set of adhan/iqama fields (for example `fajr`, `fajr_iqa`, `sunrise`, `doha`, `dhuhar`, `dhuhar_iqa`, `asr`, `asr_iqa`, `maghrib`, `maghrib_iqa`, `isha`, `isha_iqa`).
+- All time values must be in strict `HH:MM` 24-hour format with leading zeros.
+
+Here is an example matching that format:
 
 ```json
 {
-	"fajr": "06:06 ",
-	"sunrise": "07:20 ",
-	"doha": "08:00 ",
-	"dhuhar": "12:15 ",
-	"asr": "15:45 ",
-	"maghrib": "17:10 ",
-	"isha": "18:30 "
+  "year": "2025",
+  "month": "1",
+  "#": "Wednesday",
+  "day": "1",
+  "fajr": "06:05",
+  "fajr_iqa": "06:30",
+  "sunrise": "07:22",
+  "doha": "07:37",
+  "dhuhar": "12:15",
+  "dhuhar_iqa": "12:35",
+  "asr": "02:44",
+  "asr_iqa": "03:15",
+  "maghrib": "05:04",
+  "maghrib_iqa": "05:09",
+  "isha": "06:19",
+  "isha_iqa": "08:00"
 }
 ```
 
-The firmware removes extra spaces and converts these into 24‑hour hours/minutes internally. Some additional logic makes sure that afternoon times are treated correctly as PM.
+The firmware removes extra spaces and converts these into 24‑hour hours/minutes internally. Some additional logic makes sure that afternoon times are treated correctly as PM. The firmware is tolerant of minor whitespace, but you should still generate **clean, normalized** `HH:MM` strings as shown above. For allowed keys and exact rules, see [prayertimes_specs.md](prayertimes_specs.md).
 
 Each **timezone JSON** is even simpler, for example:
 
@@ -366,6 +384,8 @@ Because GitHub itself only serves these files over HTTPS, I used a small GitHub 
 
 To do that, simply change the base URLs in `athan.yaml` and rebuild/flash.
 
+Again, the directory layout and JSON fields themselves are defined in [prayertimes_specs.md](prayertimes_specs.md); make sure your server follows that document so the device does not hit parsing errors.
+
 ### 4.4 Current location list and real mosques
 
 The firmware currently exposes 15 slots. Some are already in active use, others are placeholders for future mosques.
@@ -389,12 +409,12 @@ High‑level steps:
 
 1. Create a new repository and mirror the folder layout used in `athan_json`:
 	 - `docs/timezones/<key>.json` for timezones.
-	 - `<key>/<year>/<DDD>.json` for daily prayer times.
+	 - `docs/athantimes/<key>/<year>/<DDD>.json` for daily prayer times (e.g. `docs/athantimes/davis/2025/001.json`).
 2. Generate or copy JSON files for your mosque(s). You can adapt `break_json.py` in this repo as a starting point if you have a large CSV or JSON with a full year of times.
 3. In `athan.yaml`, update the base URLs inside the `change_location_handler` and `load_prayer_times` scripts to point at your own repo or domain.
 4. Recompile and flash the firmware with ESPHome.
 
-Because the JSON format is intentionally very small and regular, this approach works well even on a simple ESP8266 over plain HTTP.
+Because the JSON format is intentionally very small and regular, this approach works well even on a simple ESP8266 over plain HTTP. For **exact field names and time formatting**, see [prayertimes_specs.md](prayertimes_specs.md) and make sure your generator matches it.
 
 ---
 
