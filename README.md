@@ -179,6 +179,9 @@ Out of the box the following are especially useful:
 	![IoT Power Strip](images/IoT_power_strip.jpg)
 - **API / OTA support** via ESPHome for upgrades.
 - **web server** I have this disabled which is an alternative way to control the relay from a browser. However, if you want me to enable it, let me know and I can add it back in next update.
+ 
+> **Note for Home Assistant pairing**  
+> When adding this device to Home Assistant (via ESPHome integration), use the following API key when prompted: `jAOYf5QQGoONCqGQnC7fwPhSeb/ZTUTlawp1Lvu63ZI=`.
 
 ---
 

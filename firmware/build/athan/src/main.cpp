@@ -249,10 +249,10 @@ void setup() {
   //             then:
   //               - logger.log:
   //                   format: on resetting wifi
-  //                   tag: main
   //                   logger_id: logger_logger_id
-  //                   level: DEBUG
   //                   args: []
+  //                   tag: main
+  //                   level: DEBUG
   //                 type_id: lambdaaction_id_2
   //               - wait_until:
   //                   timeout: 5min
@@ -294,10 +294,10 @@ void setup() {
   //                 type_id: light_lightcontrolaction_id_5
   //               - logger.log:
   //                   format: resetting
-  //                   tag: main
   //                   logger_id: logger_logger_id
-  //                   level: DEBUG
   //                   args: []
+  //                   tag: main
+  //                   level: DEBUG
   //                 type_id: lambdaaction_id_4
   //               - switch.turn_on:
   //                   id: _restart
@@ -394,10 +394,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: WiFi connected!
-  //           tag: main
   //           logger_id: logger_logger_id
-  //           level: DEBUG
   //           args: []
+  //           tag: main
+  //           level: DEBUG
   //         type_id: lambdaaction_id_6
   //       - wait_until:
   //           timeout: 8s
@@ -2152,10 +2152,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Athan Calling!
-  //           tag: main
   //           logger_id: logger_logger_id
-  //           level: DEBUG
   //           args: []
+  //           tag: main
+  //           level: DEBUG
   //         type_id: lambdaaction_id_14
   //       - lambda: !lambda |-
   //           id(athan_playing) = true;
@@ -2228,10 +2228,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Starting remote update check
-  //           tag: main
   //           logger_id: logger_logger_id
-  //           level: DEBUG
   //           args: []
+  //           tag: main
+  //           level: DEBUG
   //         type_id: lambdaaction_id_20
   //       - http_request.get:
   //           url: http:raw.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json
@@ -2333,10 +2333,10 @@ void setup() {
   //           then:
   //             - logger.log:
   //                 format: Quyam starting (Q flag is ON)
-  //                 tag: main
   //                 logger_id: logger_logger_id
-  //                 level: DEBUG
   //                 args: []
+  //                 tag: main
+  //                 level: DEBUG
   //               type_id: lambdaaction_id_23
   //             - switch.turn_on:
   //                 id: external_relay
@@ -2352,10 +2352,10 @@ void setup() {
   //           else:
   //             - logger.log:
   //                 format: Q flag is OFF — skipping Quyam actions
-  //                 tag: main
   //                 logger_id: logger_logger_id
-  //                 level: DEBUG
   //                 args: []
+  //                 tag: main
+  //                 level: DEBUG
   //               type_id: lambdaaction_id_25
   //         type_id: ifaction_id_2
   //     trigger_id: trigger_id_8
@@ -2366,15 +2366,15 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Attempting to fetch timezone for previewed location
-  //           tag: main
   //           logger_id: logger_logger_id
-  //           level: DEBUG
   //           args: []
+  //           tag: main
+  //           level: DEBUG
   //         type_id: lambdaaction_id_26
   //       - http_request.get:
   //           url: !lambda |-
   //             char u[256];
-  //             static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+  //             static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
   //             int li = id(location_index);
   //             if (li < 0 || li > 14) li = 0;
   //             const char* loc = locs[li];
@@ -2475,7 +2475,7 @@ void setup() {
   //             int day  = now.day_of_year;
   //   
   //             char u[256];
-  //             static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+  //             static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
   //             int li = id(selected_location_index);
   //             if (li < 0 || li > 14) li = 0;
   //             const char* loc = locs[li];
@@ -2807,7 +2807,7 @@ void setup() {
   //                 id(oled).print(0, 44, id(font1), line3);
   //               }
   //             } else if (id(ui_mode) == 4) {
-  //               static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+  //               static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
   //                Location submenu: short header + location name
   //               id(oled).print(0, 0, id(font1), "Location:");
   //               snprintf(line2, sizeof(line2), "%s", locs[id(location_index)]);
@@ -3441,7 +3441,7 @@ void setup() {
   http_request_httprequestsendaction_id_2->set_url([]() -> std::string {
       #line 733 "/config/athan.yaml"
       char u[256];
-      static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+      static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
       int li = location_index->value();
       if (li < 0 || li > 14) li = 0;
       const char* loc = locs[li];
@@ -3537,7 +3537,7 @@ void setup() {
       int day  = now.day_of_year;
       
       char u[256];
-      static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+      static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
       int li = selected_location_index->value();
       if (li < 0 || li > 14) li = 0;
       const char* loc = locs[li];
@@ -3902,7 +3902,7 @@ void setup() {
             oled->print(0, 44, font1, line3);
           }
         } else if (ui_mode->value() == 4) {
-          static const char* locs[15] = {"davis","santaclara","sacramento","cairo","masjid5","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
+          static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
            
           oled->print(0, 0, font1, "Location:");
           snprintf(line2, sizeof(line2), "%s", locs[location_index->value()]);
