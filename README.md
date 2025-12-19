@@ -311,7 +311,7 @@ One of the main goals of this project is to keep a very simple, transparent JSON
 
 ### 4.1 Where the JSONs live by default
 
-- By default the firmware points to my `athan_json` repository using a GitHub mirror service (raw.githack URLs).
+- By default the firmware points to my `athan_json` repository using an opensource GitHub mirror service [raw.githack URLs](https://raw.githack.com).
 - For each day of the year and each supported location, there is a tiny JSON file with the times for that day.
 - For each location there is also a small timezone JSON file with a single `TZ` field.
 

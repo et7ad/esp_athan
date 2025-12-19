@@ -1,5 +1,5 @@
 substitutions:
-  current_version: "1"
+  current_version: "2"
 
   # ---------------------------------------------------------------
   # NOTE for people just changing the OLED / SSD1306 display
@@ -630,7 +630,7 @@ script:
     then:
       - logger.log: "Starting remote update check"
       - http_request.get:
-          url: "http://raw.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json"
+          url: "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json"
           capture_response: false
           max_response_buffer_size: 1024
           on_response:
@@ -736,7 +736,7 @@ script:
             if (li < 0 || li > 14) li = 0;
             const char* loc = locs[li];
             snprintf(u, sizeof(u),
-              "http://raw.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
+              "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
               loc);
             ESP_LOGI("tz", "TZ URL = %s", u);
             return std::string(u);
@@ -828,7 +828,7 @@ script:
             if (li < 0 || li > 14) li = 0;
             const char* loc = locs[li];
             snprintf(u, sizeof(u),
-              "http://raw.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
+              "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
               loc, year, day);
 
             ESP_LOGI("prayer", "URL = %s", u);

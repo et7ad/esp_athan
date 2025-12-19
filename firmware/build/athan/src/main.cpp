@@ -249,10 +249,10 @@ void setup() {
   //             then:
   //               - logger.log:
   //                   format: on resetting wifi
-  //                   logger_id: logger_logger_id
   //                   args: []
   //                   tag: main
   //                   level: DEBUG
+  //                   logger_id: logger_logger_id
   //                 type_id: lambdaaction_id_2
   //               - wait_until:
   //                   timeout: 5min
@@ -294,10 +294,10 @@ void setup() {
   //                 type_id: light_lightcontrolaction_id_5
   //               - logger.log:
   //                   format: resetting
-  //                   logger_id: logger_logger_id
   //                   args: []
   //                   tag: main
   //                   level: DEBUG
+  //                   logger_id: logger_logger_id
   //                 type_id: lambdaaction_id_4
   //               - switch.turn_on:
   //                   id: _restart
@@ -394,10 +394,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: WiFi connected!
-  //           logger_id: logger_logger_id
   //           args: []
   //           tag: main
   //           level: DEBUG
+  //           logger_id: logger_logger_id
   //         type_id: lambdaaction_id_6
   //       - wait_until:
   //           timeout: 8s
@@ -540,7 +540,7 @@ void setup() {
   // json:
   //   {}
   // substitutions:
-  //   current_version: '1'
+  //   current_version: '2'
   // uart:
   //   tx_pin:
   //     number: 1
@@ -2152,10 +2152,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Athan Calling!
-  //           logger_id: logger_logger_id
   //           args: []
   //           tag: main
   //           level: DEBUG
+  //           logger_id: logger_logger_id
   //         type_id: lambdaaction_id_14
   //       - lambda: !lambda |-
   //           id(athan_playing) = true;
@@ -2228,13 +2228,13 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Starting remote update check
-  //           logger_id: logger_logger_id
   //           args: []
   //           tag: main
   //           level: DEBUG
+  //           logger_id: logger_logger_id
   //         type_id: lambdaaction_id_20
   //       - http_request.get:
-  //           url: http:raw.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json
+  //           url: http:rawcdn.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json
   //           capture_response: false
   //           max_response_buffer_size: 1024
   //           on_response:
@@ -2283,7 +2283,7 @@ void setup() {
   //   
   //                   int latest = doc["latest_version"].as<int>();
   //                   id(update_latest_version) = latest;
-  //                   if (latest <= 1) {
+  //                   if (latest <= 2) {
   //                     id(update_check_state) = 1;  up-to-date
   //                     ESP_LOGI("update", "Device up-to-date: %d", latest);
   //                     id(update_display).execute();
@@ -2308,7 +2308,7 @@ void setup() {
   //                   }
   //                   id(update_url) = fw_url;
   //                   id(update_check_state) = 2;  update available
-  //                   ESP_LOGI("update", "Update available: %d -> %d, url=%s", 1, latest, fw_url.c_str());
+  //                   ESP_LOGI("update", "Update available: %d -> %d, url=%s", 2, latest, fw_url.c_str());
   //                   id(update_display).execute();
   //                 type_id: lambdaaction_id_21
   //             trigger_id: trigger_id_6
@@ -2333,10 +2333,10 @@ void setup() {
   //           then:
   //             - logger.log:
   //                 format: Quyam starting (Q flag is ON)
-  //                 logger_id: logger_logger_id
   //                 args: []
   //                 tag: main
   //                 level: DEBUG
+  //                 logger_id: logger_logger_id
   //               type_id: lambdaaction_id_23
   //             - switch.turn_on:
   //                 id: external_relay
@@ -2352,10 +2352,10 @@ void setup() {
   //           else:
   //             - logger.log:
   //                 format: Q flag is OFF — skipping Quyam actions
-  //                 logger_id: logger_logger_id
   //                 args: []
   //                 tag: main
   //                 level: DEBUG
+  //                 logger_id: logger_logger_id
   //               type_id: lambdaaction_id_25
   //         type_id: ifaction_id_2
   //     trigger_id: trigger_id_8
@@ -2366,10 +2366,10 @@ void setup() {
   //     then:
   //       - logger.log:
   //           format: Attempting to fetch timezone for previewed location
-  //           logger_id: logger_logger_id
   //           args: []
   //           tag: main
   //           level: DEBUG
+  //           logger_id: logger_logger_id
   //         type_id: lambdaaction_id_26
   //       - http_request.get:
   //           url: !lambda |-
@@ -2379,7 +2379,7 @@ void setup() {
   //             if (li < 0 || li > 14) li = 0;
   //             const char* loc = locs[li];
   //             snprintf(u, sizeof(u),
-  //               "http:raw.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
+  //               "http:rawcdn.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
   //               loc);
   //             ESP_LOGI("tz", "TZ URL = %s", u);
   //             return std::string(u);
@@ -2480,7 +2480,7 @@ void setup() {
   //             if (li < 0 || li > 14) li = 0;
   //             const char* loc = locs[li];
   //             snprintf(u, sizeof(u),
-  //               "http:raw.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
+  //               "http:rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
   //               loc, year, day);
   //   
   //             ESP_LOGI("prayer", "URL = %s", u);
@@ -2772,17 +2772,17 @@ void setup() {
   //               if (id(ui_menu_index) == 3) {
   //                 if (id(update_check_state) == 0) {
   //                    Not checked yet: show current version only
-  //                   snprintf(line3, sizeof(line3), "V%d", 1);
+  //                   snprintf(line3, sizeof(line3), "V%d", 2);
   //                 } else if (id(update_check_state) == 3) {
-  //                   snprintf(line3, sizeof(line3), "V%d checking..", 1);
+  //                   snprintf(line3, sizeof(line3), "V%d checking..", 2);
   //                 } else if (id(update_check_state) == 1) {
-  //                   snprintf(line3, sizeof(line3), "V%d uptodate", 1);
+  //                   snprintf(line3, sizeof(line3), "V%d uptodate", 2);
   //                 } else if (id(update_check_state) == 2) {
-  //                   snprintf(line3, sizeof(line3), "V%d -> V%d ?", 1, id(update_latest_version));
+  //                   snprintf(line3, sizeof(line3), "V%d -> V%d ?", 2, id(update_latest_version));
   //                 } else if (id(update_check_state) == 4) {
   //                   snprintf(line3, sizeof(line3), "attempting ..");
   //                 } else {
-  //                   snprintf(line3, sizeof(line3), "V%d", 1);
+  //                   snprintf(line3, sizeof(line3), "V%d", 2);
   //                 }
   //                 id(oled).print(0, 44, id(font1), line3);
   //               }
@@ -3325,7 +3325,7 @@ void setup() {
       ESP_LOGD("main", "Starting remote update check");
   });
   http_request_httprequestsendaction_id = new http_request::HttpRequestSendAction<>(http_request_httprequestarduino_id);
-  http_request_httprequestsendaction_id->set_url("http://raw.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json");
+  http_request_httprequestsendaction_id->set_url("http://rawcdn.githack.com/et7ad/esp_athan/master/docs/firmwareinfo/latest.json");
   http_request_httprequestsendaction_id->set_method("GET");
   http_request_httprequestsendaction_id->set_max_response_buffer_size(1024);
   automation_id_12 = new Automation<std::shared_ptr<http_request::HttpContainer>>(http_request_httprequestsendaction_id->get_success_trigger());
@@ -3374,7 +3374,7 @@ void setup() {
       
       int latest = doc["latest_version"].as<int>();
       update_latest_version->value() = latest;
-      if (latest <= 1) {
+      if (latest <= 2) {
         update_check_state->value() = 1;  
         ESP_LOGI("update", "Device up-to-date: %d", latest);
         update_display->execute();
@@ -3399,7 +3399,7 @@ void setup() {
       }
       update_url->value() = fw_url;
       update_check_state->value() = 2;  
-      ESP_LOGI("update", "Update available: %d -> %d, url=%s", 1, latest, fw_url.c_str());
+      ESP_LOGI("update", "Update available: %d -> %d, url=%s", 2, latest, fw_url.c_str());
       update_display->execute();
   });
   automation_id_12->add_actions({lambdaaction_id_21});
@@ -3446,7 +3446,7 @@ void setup() {
       if (li < 0 || li > 14) li = 0;
       const char* loc = locs[li];
       snprintf(u, sizeof(u),
-        "http://raw.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
+        "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
         loc);
       ESP_LOGI("tz", "TZ URL = %s", u);
       return std::string(u);
@@ -3542,7 +3542,7 @@ void setup() {
       if (li < 0 || li > 14) li = 0;
       const char* loc = locs[li];
       snprintf(u, sizeof(u),
-        "http://raw.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
+        "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
         loc, year, day);
       
       ESP_LOGI("prayer", "URL = %s", u);
@@ -3867,17 +3867,17 @@ void setup() {
           if (ui_menu_index->value() == 3) {
             if (update_check_state->value() == 0) {
                
-              snprintf(line3, sizeof(line3), "V%d", 1);
+              snprintf(line3, sizeof(line3), "V%d", 2);
             } else if (update_check_state->value() == 3) {
-              snprintf(line3, sizeof(line3), "V%d checking..", 1);
+              snprintf(line3, sizeof(line3), "V%d checking..", 2);
             } else if (update_check_state->value() == 1) {
-              snprintf(line3, sizeof(line3), "V%d uptodate", 1);
+              snprintf(line3, sizeof(line3), "V%d uptodate", 2);
             } else if (update_check_state->value() == 2) {
-              snprintf(line3, sizeof(line3), "V%d -> V%d ?", 1, update_latest_version->value());
+              snprintf(line3, sizeof(line3), "V%d -> V%d ?", 2, update_latest_version->value());
             } else if (update_check_state->value() == 4) {
               snprintf(line3, sizeof(line3), "attempting ..");
             } else {
-              snprintf(line3, sizeof(line3), "V%d", 1);
+              snprintf(line3, sizeof(line3), "V%d", 2);
             }
             oled->print(0, 44, font1, line3);
           }
