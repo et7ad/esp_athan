@@ -64,9 +64,9 @@ Pictures (these will show once you add photos to `images/`):
 ![Device in enclosure](images/device_enclosure.jpg)
 ```
 ![PCB rendered](images/pcb_rendered.png)
-```markdown
-![Device running](images/device_running.jpg)
-```
+
+![Device running](images/device_running.jpeg)
+
 
 ---
 
