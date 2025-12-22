@@ -33,6 +33,13 @@ For more detail:
 
 ---
 
+### Troubleshooting (hardware issues)
+
+- **DFPlayer loops many clips:** Some non-original DFPlayer modules occasionally mis-handle UART commands and start playing several files in rapid succession. This usually happens only on certain boots; if the device boots cleanly, it keeps working fine. Power-cycle the device (unplug then plug back in) to clear it. Even with the clone modules, this is a rare occurrence.
+- **Display freezes or shows artifacts:** Cheaper OLED displays replicas can rarely lock up, go blank, or show artifacts. Restarting the device restores the screen and normal operation.
+
+---
+
 ### Who this repo is for
 
 - **1. People who already have the device in hand**  

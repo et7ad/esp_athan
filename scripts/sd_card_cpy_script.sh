@@ -17,6 +17,7 @@
 # 2. Copies B1–B10 next   -> become files 11–20 (hourly tick range).
 # 3. Copies C1–C4 next    -> become files 21–24 (UI / menu sounds).
 # 4. Copies all D*.mp3    -> any additional sounds after that.
+# 5. Copies all Z*.mp3    -> any extra sounds at the end.
 #
 # How to use it
 # -------------
@@ -56,6 +57,11 @@ done
 
 # Copy all D files (D1, D2, D3… automatically)
 for f in "$SRC"/D*.mp3; do
+    cp "$f" "$DEST/"
+done
+
+# Copy all Z files (Z1, Z2, Z3… automatically)
+for f in "$SRC"/Z*.mp3; do
     cp "$f" "$DEST/"
 done
 
