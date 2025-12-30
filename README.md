@@ -22,7 +22,8 @@ For more detail:
 - **Section 2 – Building your own device**: hardware, wiring, PCB, enclosure.
 - **Section 3 – SD‑card for audio**: how to prepare the microSD so DFPlayer file numbers match the firmware.
 - **Section 4–5 – Mosques and JSON**: how prayer times and timezones are stored and hosted.
-- **Section 6 – Developers**: internal logic and how to extend `athan.yaml`.
+- **Section 6 – Enclosure and 3D printing**: enclosure options, 3D‑printing notes, and packaging tips.
+- **Section 7 – Developers**: internal logic and how to extend `athan.yaml`.
 
 ---
 
@@ -430,7 +431,37 @@ Because the JSON format is intentionally very small and regular, this approach w
 
 ---
 
-## 6. Code and internals (for developers)
+## 6. Enclosure and 3D printing
+
+This section is about the physical enclosure: how the PCB, display, buttons, and speaker fit together, how to approach 3D printing the case, and a few notes on packaging the finished device.
+
+### 6.1 Enclosure overview
+
+- The current enclosure is designed around the `athanV2` board, front buttons, OLED, and speaker.
+- STL/3D/gcode assets are under `hardware/enclosure/athanV2`.
+
+
+![Enclosure assembled (placeholder)](images/enclosure_assembled_placeholder.jpg)
+
+### 6.2 3D‑printing tips (generic recommendations)
+
+These are intentionally generic so you can adapt them to your printer and chosen enclosure variant. Adjust freely based on your experience.
+
+- **Material choice:** PLA is usually enough for indoor use; PETG or ABS can also be considered if the device might be in a very warm environment.
+- **Layer height:** 0.2 mm is a good starting point; you can go finer for nicer front‑panel text or logo details.
+- **Perimeters and infill:** 3–4 perimeters and 15–25% infill are typically more than enough for rigidity.
+- **Orientation:** When slicing the top and bottom parts make sure the flat surfaces are on the print bed for least support material and best finish.
+- **Supports:** Minimize supports by adjusting the overhang angle to 80° and the support horizontal extension to 0.82 mm (supports might only be needed inside the big side openings and under the crescent).
+
+### 6.4 Acknowledgements for enclosure and 3D design
+
+Special thanks to [Ahmed Nader](https://github.com/iNader) for his guidance on component placement while iterating on the enclosure.
+
+Many thanks also to [Omar Ramadan](https://github.com/omarramadan913) for volunteering his time to contribute to the enclosure and 3D design work.
+
+---
+
+## 7. Code and internals (for developers)
 
 If you plan to change the logic, add more menu items, or extend the formats, please see `DEVELOPER.md`. It covers:
 
@@ -443,7 +474,7 @@ ESPHome handles most of the low‑level work; the YAML is mostly about small pie
 
 ---
 
-## 7. Similar projects and why this exists
+## 8. Similar projects and why this exists
 
 - **ESP32 Audio – Muslim Prayer Time (Solat Time) on ESP32**  
 	<https://fornextlife.wordpress.com/2021/03/07/muslim-prayer-time-on-esp32/>  
@@ -461,7 +492,7 @@ Those projects are feature‑rich in many ways and they may be more suitable for
 - It allow me to have half of the device controlled through the hosted files, so I can simply change the behaviour of the same device by updating JSON files instead of having to reupdate the firmware every time I need to add mosques or change times.
 ---
 
-## 8. Building one for someone else
+## 9. Building one for someone else
 
 If someone is interested in having a unit but cannot or does not want to assemble it, I am happy to help (Whenever I have some free time ;-;):
 
@@ -472,7 +503,7 @@ Feel free to reach out through the repository if this is something you need.
 
 ---
 
-## 9. Contributing, feedback and issues
+## 10. Contributing, feedback and issues
 
 This is a small hobby project I originally built for my own use. In many places the beautiful Athan is simply not called publicly, and I wanted a compact, reliable way to hear it at the right times — matching the timetable of my local mosque — without needing to reprogram the device every time I moved or share it with a friend. I couldn’t find an ESPHome-based project that supported custom JSON prayer-time files and flexible location handling, so I put this together and decided to share it in case it is useful to others as well.
 If you notice a bug, run into unexpected behaviour, have an idea for improvement, or would like your mosque added to the supported list, please feel free to open an issue or reach out. Even small suggestions make the project better for everyone, and I try to respond when I can.
