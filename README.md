@@ -67,14 +67,12 @@ For more detail:
 
 Pictures (these will show once you add photos to `images/`):
 
+![PCB rendered](images/pcb_rendered.png)
+![Enclosure rendered](images/enclosure_rendered.jpg)
+![Device running](images/device_running.jpeg)
 ```markdown
-![Assembled device](images/device_assembled.jpg)
 ![Device in enclosure](images/device_enclosure.jpg)
 ```
-![PCB rendered](images/pcb_rendered.png)
-
-![Device running](images/device_running.jpeg)
-
 
 ---
 
