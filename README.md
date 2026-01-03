@@ -65,8 +65,6 @@ For more detail:
 - **External relay:** One relay output on `GPIO13`, exposed to Home Assistant as a switch (e.g., to drive an external amplifier, light, or another low‑voltage load through a proper relay board).
 - **PCB + enclosure:** KiCad project and 3D enclosure files live under `hardware/pcb/athanV1_PCB/`.
 
-Pictures (these will show once you add photos to `images/`):
-
 ![PCB rendered](images/pcb_rendered.png)
 ![Enclosure rendered](images/enclosure_rendered.jpg)
 ![Device running](images/device_running.jpeg)
