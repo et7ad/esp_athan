@@ -134,13 +134,19 @@ binary_sensor:
       then:
         - lambda: |-
             id(ui_last_activity) = millis();
-            // If not in menu, act as a silence button
+            // If not in menu, act as a silence button or toggle relay
             if (id(ui_mode) == 0) {
-              ESP_LOGI("ui","Next pressed (normal) -> silence");
-              id(dfp).stop();
-              id(athan_playing) = false;
-              //// Run the test script when ui_next pressed in normal mode
-              id(test_script).execute();
+              if (id(athan_playing)) {
+                ESP_LOGI("ui","Next pressed (normal) -> silence");
+                id(dfp).stop();
+                id(athan_playing) = false;
+                //// Run the test script when ui_next pressed in normal mode
+                id(test_script).execute();
+              } else {
+                // Athan not playing – toggle external relay
+                ESP_LOGI("ui","Next pressed (normal, idle) -> toggle relay");
+                id(external_relay).toggle();
+              }
               id(update_display).execute();
               return;
             }
