@@ -83,7 +83,9 @@ api:
   encryption:
     key: "jAOYf5QQGoONCqGQnC7fwPhSeb/ZTUTlawp1Lvu63ZI="
 
-# web_server:
+# only enable webserver if you want to access the device and see logs through "http://<ip_address>" or control the relay through "http://<ip_address>/switch/external_relay/toggle" [toggle/turon_on/turn_off] or access the logs via "http://<ip_address>/logs"
+# this was originally disabled. However I decided to enable it and use instead of homeassistant. More in scripts/ that explain/show how to use.
+web_server:
 
 ota:
   - platform: esphome
