@@ -676,7 +676,7 @@ script:
   - id: dfp_play
     mode: restart
     then:
-      - delay: 100ms
+      - delay: 20ms
       - lambda: |-
           int f = id(dfp_pending_file);
           if (f > 0) {
