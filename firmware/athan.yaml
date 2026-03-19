@@ -141,6 +141,7 @@ binary_sensor:
               if (id(athan_playing)) {
                 ESP_LOGI("ui","Next pressed (normal) -> silence");
                 id(dfp).stop();
+                id(dfp_play).stop();
                 id(athan_playing) = false;
                 //// Run the test script when ui_next pressed in normal mode
                 id(test_script).execute();
@@ -166,13 +167,18 @@ binary_sensor:
               // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
             } else if (id(ui_mode) == 2) {
               id(athan_index) = (id(athan_index) + 1) % 10;
-              if (!id(athan_playing)) id(dfp).play_file(1 + id(athan_index));
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = 1 + id(athan_index);
+                id(dfp_play).execute();
+              }
             } else if (id(ui_mode) == 3) {
               id(htick_index) = (id(htick_index) + 1) % 11;
               if (id(htick_index) == 0) {
                 id(dfp).stop();
+                id(dfp_play).stop();
               } else {
-                id(dfp).play_file(10 + id(htick_index));
+                id(dfp_pending_file) = 10 + id(htick_index);
+                id(dfp_play).execute();
               }
             } else if (id(ui_mode) == 4) {
               id(location_index) = (id(location_index) + 1) % 15;
@@ -191,7 +197,10 @@ binary_sensor:
               id(dfp).set_volume(vol);
               ESP_LOGI("ui", "DFPlayer volume set to %d (mapped from %d%%)", vol, id(volume_level));
               // Play feedback tone so user hears the change at new volume
-              if (!id(athan_playing)) id(dfp).play_file(22);
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = 22;
+                id(dfp_play).execute();
+              }
             }
             id(update_display).execute();
 
@@ -212,6 +221,7 @@ binary_sensor:
               if(id(athan_playing)){
                 ESP_LOGI("ui","Select pressed -> silence athan");
                 id(dfp).stop();
+                id(dfp_play).stop();
                 id(athan_playing) = false;
                 id(update_display).execute();
                 return;
@@ -221,13 +231,15 @@ binary_sensor:
               // Always reset update-check state when entering the menu
               id(update_check_state) = 0;
               ESP_LOGI("ui","Select pressed -> Entered menu: index=0");
-              if (!id(athan_playing)) id(dfp).play_file(23);
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
+              }
               id(update_display).execute();
               return;
             }
             // If in menu, act as select/confirm
             ESP_LOGI("ui","Select pressed in menu index=%d", id(ui_menu_index));
-            if (!id(athan_playing)) id(dfp).play_file(23);
             if (id(ui_mode) == 1) {
               // main menu: 0=athan,1=htick,2=location,3=update,4=volume,5=cancel,6=Q
               if (id(ui_menu_index) == 0) {
@@ -235,12 +247,18 @@ binary_sensor:
                 id(athan_index) = id(athan_file_index) - 1;
                 if (id(athan_index) < 0) id(athan_index) = 0;
                 ESP_LOGI("ui","Entered Athan submenu (index=%d)", id(athan_index));
-                if (!id(athan_playing)) id(dfp).play_file(1 + id(athan_index));
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = 1 + id(athan_index);
+                  id(dfp_play).execute();
+                }
               } else if (id(ui_menu_index) == 1) {
                 id(ui_mode) = 3;
                 if (id(htick_file_index) == 0) id(htick_index) = 0; else id(htick_index) = id(htick_file_index) - 10;
                 ESP_LOGI("ui","Entered Hourly Tick submenu (index=%d)", id(htick_index));
-                if (!id(athan_playing) && id(htick_index) > 0) id(dfp).play_file(10 + id(htick_index));
+                if (!id(athan_playing) && id(htick_index) > 0) {
+                  id(dfp_pending_file) = 10 + id(htick_index);
+                  id(dfp_play).execute();
+                }
               } else if (id(ui_menu_index) == 2) {
                 id(ui_mode) = 4; // location menu
                 // Initialize preview index from the persisted selection so the
@@ -248,8 +266,12 @@ binary_sensor:
                 // preview-only while menu is open.
                 id(location_index) = id(selected_location_index);
                 ESP_LOGI("ui","Entered Location submenu (preview_index=%d)", id(location_index));
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
               } else if (id(ui_menu_index) == 3) {
                 // Update: first press checks remote latest.json, second press confirms update
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
                 if (id(update_check_state) == 2) {
                   // Previously found an update and user confirmed -> attempt update
                   id(update_check_state) = 4; // attempting
@@ -268,13 +290,20 @@ binary_sensor:
                 // Enter volume submenu
                 id(ui_mode) = 5;
                 ESP_LOGI("ui", "Entered Volume submenu (level=%d%%)", id(volume_level));
-                if (!id(athan_playing)) id(dfp).play_file(22);
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = 22;
+                  id(dfp_play).execute();
+                }
               } else if (id(ui_menu_index) == 5) {
                 // Cancel
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
                 id(ui_mode) = 0;
                 ESP_LOGI("ui","Menu cancelled");
               } else if (id(ui_menu_index) == 6) {
                 // Q toggle item: enabling requires 10 consecutive select presses
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
                 if (!id(q_flag)) {
                   id(q_select_count) = id(q_select_count) + 1;
                   ESP_LOGI("ui","Q select count = %d", id(q_select_count));
@@ -290,21 +319,29 @@ binary_sensor:
                   ESP_LOGI("ui","Q disabled via single press");
                 }
               } else {
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
                 id(ui_mode) = 0;
               }
             } else if (id(ui_mode) == 2) {
               // select athan
               id(athan_file_index) = 1 + id(athan_index);
               id(dfp).stop();
+              id(dfp_pending_file) = 23;
+              id(dfp_play).execute();
               id(ui_mode) = 0;
               ESP_LOGI("ui","Athan %d selected", id(athan_file_index));
             } else if (id(ui_mode) == 3) {
               // select htick (0 = None)
               if (id(htick_index) == 0) id(htick_file_index) = 0; else id(htick_file_index) = 10 + id(htick_index);
               id(dfp).stop();
+              id(dfp_pending_file) = 23;
+              id(dfp_play).execute();
               id(ui_mode) = 0;
               ESP_LOGI("ui","Hourly Tick %d selected", id(htick_file_index));
             } else if (id(ui_mode) == 4) {
+                id(dfp_pending_file) = 23;
+                id(dfp_play).execute();
                 if (id(location_index) != id(selected_location_index)) {
                   // apply the change only if the fetch returns a valid TZ.
                   id(change_location_handler).execute();
@@ -314,6 +351,8 @@ binary_sensor:
             } else if (id(ui_mode) == 5) {
               // confirm volume selection
               ESP_LOGI("ui", "Volume selected: %d%%", id(volume_level));
+              id(dfp_pending_file) = 23;
+              id(dfp_play).execute();
               id(ui_mode) = 0;
             }
             id(update_display).execute();
@@ -397,7 +436,8 @@ time:
           - script.execute: refresh_prayer_times_if_needed  # this runs before the second interval below. so if prayer time is at fixed hour, then this runs first.
           - lambda: |-
               if (!id(athan_playing) && id(htick_file_index) > 0) {
-                  id(dfp).play_file(id(htick_file_index));
+                  id(dfp_pending_file) = id(htick_file_index);
+                  id(dfp_play).execute();
               }
       - seconds: 0
         then:
@@ -557,6 +597,11 @@ globals:
     initial_value: "\"\""
     restore_value: false
 
+  - id: dfp_pending_file
+    type: int
+    initial_value: "0"
+    restore_value: false
+
 
 script:
   - id: refresh_prayer_times_if_needed
@@ -591,7 +636,9 @@ script:
       - lambda: |-
           id(athan_playing) = true;
           id(dfp).stop();
-          delay(250);
+          id(dfp_play).stop();
+      - delay: 250ms
+      - lambda: |-
           id(dfp).play_file(id(athan_file_index));
       - light.turn_on: builtin_led
       - delay: 5min
@@ -626,6 +673,17 @@ script:
           id(update_check_state) = 0;
           id(ui_mode) = 0;
           id(update_display).execute();
+
+  - id: dfp_play
+    mode: restart
+    then:
+      - delay: 100ms
+      - lambda: |-
+          int f = id(dfp_pending_file);
+          if (f > 0) {
+            id(dfp).play_file(f);
+            ESP_LOGD("dfp", "Playing file %d (debounced)", f);
+          }
 
   - id: test_script
     mode: single
@@ -724,7 +782,9 @@ script:
           then:
             - logger.log: "Quyam starting (Q flag is ON)"
             - switch.turn_on: external_relay
-            - lambda: 'id(dfp).play_file(random(25, 35));'
+            - lambda: |-
+                id(dfp_pending_file) = random(25, 35);
+                id(dfp_play).execute();
             - delay: 15min
             - switch.turn_off: external_relay
             
@@ -1119,6 +1179,7 @@ script:
                 ESP_LOGI("ui", "Menu timed out after %lu ms, returning to normal", diff);
                 id(ui_mode) = 0;
                 id(dfp).stop();
+                id(dfp_play).stop();
               }
             }
           }
