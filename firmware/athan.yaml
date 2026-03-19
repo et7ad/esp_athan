@@ -162,7 +162,6 @@ binary_sensor:
               // If navigation lands on the Update item, reset its state
               if (id(ui_menu_index) == 3) {
                 id(update_check_state) = 0;
-                id(update_display).execute();
               }
               // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
             } else if (id(ui_mode) == 2) {
