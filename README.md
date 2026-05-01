@@ -315,7 +315,7 @@ One of the main goals of this project is to keep a very simple, transparent JSON
 
 ### 4.1 Where the JSONs live by default
 
-- By default the firmware points to my `athan_json` repository using an opensource GitHub mirror service [raw.githack URLs](https://raw.githack.com).
+- By default the firmware points to the `docs/` folder of this same `esp_athan` repository, served through an opensource GitHub mirror service [raw.githack URLs](https://raw.githack.com).
 - For each day of the year and each supported location, there is a tiny JSON file with the times for that day.
 - For each location there is also a small timezone JSON file with a single `TZ` field.
 
@@ -369,18 +369,18 @@ Note: The TZ string format follows the POSIX convention used in many Unix‑like
 In `athan.yaml` you will see two small arrays of location keys:
 
 ```cpp
-"davis","sclaramca","sclaraalnoor","sacramento","cairo","masjid6",...,"masjid15"
+"davis","sclaramca","sclaraalnoor","sacramento","cairo","woodland","masjid7",...,"masjid15"
 ```
 
 They are used to build URLs like:
 
 - **Timezones:**
 
-	`http://raw.githack.com/et7ad/athan_json/master/docs/timezones/<key>.json`
+	`http://rawcdn.githack.com/et7ad/esp_athan/master/docs/timezones/<key>.json`
 
 - **Daily times:**
 
-	`http://raw.githack.com/et7ad/athan_json/master/docs/athantimes/<key>/<year>/<DDD>.json`
+	`http://rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/<key>/<year>/<DDD>.json`
 Where `<year>` is the four‑digit year and `<DDD>` is the day of year, zero‑padded (e.g. `001.json`).
 
 Because GitHub itself only serves these files over HTTPS, I used a small GitHub mirror (raw.githack) that exposes a simple HTTP endpoint suitable for this ESP8266 firmware. The mirror does not change the contents of the files; it only re‑serves them over HTTP. If you prefer, you can very easily replace this with:
@@ -404,7 +404,8 @@ The firmware currently exposes 15 slots. Some are already in active use, others 
 | 3    | `sclaraalnoor` | Masjid Al-Noor, Santa Clara — prayer times from [mcabayarea.org](https://www.mcabayarea.org)   | https://maps.app.goo.gl/ZAGiTFhHkNFhijHBA             |
 | 4    | `sacramento`   | Sacramento area mosque (to be detailed)                                         | (link to be added)                                    |
 | 5    | `cairo`        | Cairo example profile (to be detailed)                                          | (link to be added)                                    |
-| 6–15 | `masjid6`…`masjid15` | Reserved / placeholders                                                          | (to be assigned)                                      |
+| 6    | `woodland`     | Woodland Mosque — <https://woodlandmosque.com>                                  | https://maps.app.goo.gl/cv6gB9eWJYny81SWA             |
+| 7–15 | `masjid7`…`masjid15` | Reserved / placeholders                                                          | (to be assigned)                                      |
 
 I plan InSha2Allah, to keep maintaining the JSON files for the mosques in this table. If you would like one of the placeholder slots (6–15) to be used for your mosque, please open an issue or contact me with the details, and I will try to add it and include it in a later firmware build.
 
@@ -416,7 +417,7 @@ If you prefer to keep control of the JSON files yourself, you can host them in y
 
 High‑level steps:
 
-1. Create a new repository and mirror the folder layout used in `athan_json`:
+1. Create a new repository and mirror the folder layout used in this repo's `docs/`:
 	 - `docs/timezones/<key>.json` for timezones.
 	 - `docs/athantimes/<key>/<year>/<DDD>.json` for daily prayer times (e.g. `docs/athantimes/davis/2025/001.json`).
 2. Generate or copy JSON files for your mosque(s). You can adapt `break_json.py` in this repo as a starting point if you have a large CSV or JSON with a full year of times.

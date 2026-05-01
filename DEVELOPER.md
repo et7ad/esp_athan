@@ -52,7 +52,7 @@ Several other globals are used only for internal bookkeeping or features that ar
 
 - Builds a URL of the form:
 
-  `http://raw.githack.com/Mahm0ud-end/athan_json/master/<location>/<year>/<DDD>.json`
+  `http://rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/<location>/<year>/<DDD>.json`
 
   using `selected_location_index`, `sntp_time.now().year`, and `day_of_year`.
 - Fetches JSON via `http_request.get` with a small buffer and a hard maximum size.
