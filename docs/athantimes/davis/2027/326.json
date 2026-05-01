@@ -1,0 +1,18 @@
+{
+  "year": "2027",
+  "month": "11",
+  "#": "Monday",
+  "day": "22",
+  "fajr": "05:40",
+  "fajr_iqa": "06:05",
+  "sunrise": "06:55",
+  "doha": "07:10",
+  "dhuhar": "11:56",
+  "dhuhar_iqa": "12:06",
+  "asr": "02:30",
+  "asr_iqa": "02:40",
+  "maghrib": "04:50",
+  "maghrib_iqa": "05:00",
+  "isha": "06:07",
+  "isha_iqa": "06:27"
+}
