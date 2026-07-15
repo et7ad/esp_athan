@@ -405,7 +405,8 @@ The firmware currently exposes 15 slots. Some are already in active use, others 
 | 4    | `sacramento`   | Sacramento area mosque (to be detailed)                                         | (link to be added)                                    |
 | 5    | `cairo`        | Cairo example profile (to be detailed)                                          | (link to be added)                                    |
 | 6    | `woodland`     | Woodland Mosque — <https://woodlandmosque.com>                                  | https://maps.app.goo.gl/cv6gB9eWJYny81SWA             |
-| 7–15 | `masjid7`…`masjid15` | Reserved / placeholders                                                          | (to be assigned)                                      |
+| 7–14 | `masjid7`…`masjid14` | Reserved / placeholders                                                          | (to be assigned)                                      |
+| 15   | `masjid15`     | Visalia, California — prayer times from [IslamicFinder](https://www.islamicfinder.org/) (adhan official; iqama/doha derived). Generation steps: `docs/athantimes/masjid15/README.md` | (to be added)                                         |
 
 I plan InSha2Allah, to keep maintaining the JSON files for the mosques in this table. If you would like one of the placeholder slots (6–15) to be used for your mosque, please open an issue or contact me with the details, and I will try to add it and include it in a later firmware build.
 

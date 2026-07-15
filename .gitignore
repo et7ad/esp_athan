@@ -50,3 +50,4 @@ SDCard_files/
 **/.pioenvs/athan/firmware.factory.bin
 **/.pioenvs/athan/firmware.ota.bin
 firmware/binaries/
+scripts/parse_Islamicfinder/preparing/
