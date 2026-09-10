@@ -1,5 +1,19 @@
 substitutions:
-  current_version: "5"
+  current_version: "6"
+
+  # ---------------------------------------------------------------
+  # DFPlayer / SD-card file layout. The DFPlayer numbers files by the
+  # order they were copied to the card (see README section 3.2 and
+  # SDCard_files/cpy_script.sh). Change these together with the card.
+  # ---------------------------------------------------------------
+  athan_file_first: "1"    # A1..A10 -> files 1..10  regular athans   (choice k -> file k)
+  htick_file_first: "11"   # B1..B10 -> files 11..20 hourly ticks     (tick t   -> file 10+t)
+  tone_volume_file: "22"   # C2      -> volume feedback tone
+  tone_click_file: "23"    # C3      -> menu click
+  quyam_file_first: "25"   # D1..D10 -> files 25..34 Quyam audio (random pick)
+  quyam_file_last: "34"
+  fajr_file_first: "35"    # F1..F10 -> files 35..44 Fajr-wording athans (choice k -> file 34+k)
+  # Z_fallback_1..4 -> files 45..48. Never referenced by number; must be copied LAST.
 
   # ---------------------------------------------------------------
   # NOTE for people just changing the OLED / SSD1306 display
@@ -56,11 +70,7 @@ esphome:
       # - output.turn_on: gpio0_output 
       - delay: 2s
       - script.execute: update_display
-      - lambda: |-
-          int vol = (id(volume_level) * 30 + 50) / 100;
-          if (vol < 0) vol = 0; if (vol > 30) vol = 30;
-          id(dfp).set_volume(vol);
-          ESP_LOGI("boot", "DFPlayer volume initialized to %d (from %d%%)", vol, id(volume_level));
+      - script.execute: apply_volume
       - light.turn_on: builtin_led
       - delay: 500ms
       - light.turn_off: builtin_led
@@ -83,14 +93,41 @@ api:
   encryption:
     key: "jAOYf5QQGoONCqGQnC7fwPhSeb/ZTUTlawp1Lvu63ZI="
 
-# only enable webserver if you want to access the device and see logs through "http://<ip_address>" or control the relay through "http://<ip_address>/switch/external_relay/toggle" [toggle/turon_on/turn_off] or access the logs via "http://<ip_address>/logs"
-# this was originally disabled. However I decided to enable it and use instead of homeassistant. More in scripts/ that explain/show how to use.
+# Built-in web page at http://athan.local (or http://<ip>). Everything the two buttons can do is exposed
+# there as entities (see the select:/number:/switch:/button:/text_sensor: blocks below), and the same
+# entities show up in Home Assistant. REST examples: README section 1.6.
 web_server:
+  version: 3
+  # Live log streaming to the web page is OFF to save memory and traffic on the ESP8266.
+  # Set `log: true` to see the device log at the bottom of the web page.
+  log: false
+  sorting_groups:
+    - id: grp_now
+      name: "Now"
+      sorting_weight: 10
+    - id: grp_athan
+      name: "Athan"
+      sorting_weight: 20
+    - id: grp_prayers
+      name: "Athan On/Off per Prayer"
+      sorting_weight: 30
+    - id: grp_location
+      name: "Location"
+      sorting_weight: 40
+    - id: grp_system
+      name: "System"
+      sorting_weight: 50
 
 ota:
   - platform: esphome
     password: "016f3e8b522050971c70fa58dd26c640"
   - platform: http_request
+  # The "OTA Update" file-upload form at the bottom of the web page (http://athan.local). captive_portal
+  # auto-loads this platform anyway; it is listed explicitly so the form survives if captive_portal is
+  # ever removed. Anyone on the Wi-Fi can flash the device through it, same as the menu update.
+  # If your browser's file picker greys out the .bin (Safari on macOS), use Chrome or upload from a
+  # terminal:  curl -F "update=@firmware.bin" http://athan.local/update
+  - platform: web_server
 
 wifi:
   ssid: !secret wifi_ssid
@@ -140,9 +177,7 @@ binary_sensor:
             if (id(ui_mode) == 0) {
               if (id(athan_playing)) {
                 ESP_LOGI("ui","Next pressed (normal) -> silence");
-                id(dfp).stop();
-                id(dfp_play).stop();
-                id(athan_playing) = false;
+                id(silence_audio).execute();
                 //// Run the test script when ui_next pressed in normal mode
                 id(test_script).execute();
               } else {
@@ -156,18 +191,18 @@ binary_sensor:
             // In menu: move forward
             ESP_LOGI("ui","Next pressed (menu) -> forward");
             if (id(ui_mode) == 1) {
-              id(ui_menu_index) = (id(ui_menu_index) + 1) % 7;
+              id(ui_menu_index) = (id(ui_menu_index) + 1) % 9;
               // any navigation breaks consecutive select count for Q
               id(q_select_count) = 0;
               // If navigation lands on the Update item, reset its state
-              if (id(ui_menu_index) == 3) {
+              if (id(ui_menu_index) == 4) {
                 id(update_check_state) = 0;
               }
               // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
             } else if (id(ui_mode) == 2) {
               id(athan_index) = (id(athan_index) + 1) % 10;
               if (!id(athan_playing)) {
-                id(dfp_pending_file) = 1 + id(athan_index);
+                id(dfp_pending_file) = ${athan_file_first} + id(athan_index);
                 id(dfp_play).execute();
               }
             } else if (id(ui_mode) == 3) {
@@ -176,11 +211,11 @@ binary_sensor:
                 id(dfp).stop();
                 id(dfp_play).stop();
               } else {
-                id(dfp_pending_file) = 10 + id(htick_index);
+                id(dfp_pending_file) = (${htick_file_first} - 1) + id(htick_index);
                 id(dfp_play).execute();
               }
             } else if (id(ui_mode) == 4) {
-              id(location_index) = (id(location_index) + 1) % 15;
+              id(location_index) = (id(location_index) + 1) % (int) id(web_location_select).size();
             } else if (id(ui_mode) == 5) {
               // Volume submenu: decrement by 10%, wrap 10 -> 100
               int v = id(volume_level);
@@ -190,16 +225,17 @@ binary_sensor:
                 id(volume_level) = v - 10;
               }
               ESP_LOGI("ui", "Volume changed to %d%%", id(volume_level));
-              // Map percentage (0-100) to DFPlayer volume range (0-30)
-              int vol = (id(volume_level) * 30 + 50) / 100;
-              if (vol < 0) vol = 0; if (vol > 30) vol = 30;
-              id(dfp).set_volume(vol);
-              ESP_LOGI("ui", "DFPlayer volume set to %d (mapped from %d%%)", vol, id(volume_level));
+              id(apply_volume).execute();
               // Play feedback tone so user hears the change at new volume
               if (!id(athan_playing)) {
-                id(dfp_pending_file) = 22;
+                id(dfp_pending_file) = ${tone_volume_file};
                 id(dfp_play).execute();
               }
+            } else if (id(ui_mode) == 6) {
+              // Athan On/Off submenu: Fajr, Dhuhr, Asr, Maghrib, Isha, Done
+              id(mute_index) = (id(mute_index) + 1) % 6;
+            } else if (id(ui_mode) == 7) {
+              // Info screen: nothing to cycle
             }
             id(update_display).execute();
 
@@ -219,10 +255,7 @@ binary_sensor:
             if (id(ui_mode) == 0) {
               if(id(athan_playing)){
                 ESP_LOGI("ui","Select pressed -> silence athan");
-                id(dfp).stop();
-                id(dfp_play).stop();
-                id(athan_playing) = false;
-                id(update_display).execute();
+                id(silence_audio).execute();
                 return;
               }
               id(ui_mode) = 1; // main menu
@@ -231,7 +264,7 @@ binary_sensor:
               id(update_check_state) = 0;
               ESP_LOGI("ui","Select pressed -> Entered menu: index=0");
               if (!id(athan_playing)) {
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
               }
               id(update_display).execute();
@@ -240,36 +273,44 @@ binary_sensor:
             // If in menu, act as select/confirm
             ESP_LOGI("ui","Select pressed in menu index=%d", id(ui_menu_index));
             if (id(ui_mode) == 1) {
-              // main menu: 0=athan,1=htick,2=location,3=update,4=volume,5=cancel,6=Q
+              // main menu: 0=athan,1=athan on/off,2=htick,3=location,4=update,5=volume,6=info,7=cancel,8=Q
               if (id(ui_menu_index) == 0) {
                 id(ui_mode) = 2;
-                id(athan_index) = id(athan_file_index) - 1;
+                id(athan_index) = id(athan_file_index) - ${athan_file_first};
                 if (id(athan_index) < 0) id(athan_index) = 0;
                 ESP_LOGI("ui","Entered Athan submenu (index=%d)", id(athan_index));
                 if (!id(athan_playing)) {
-                  id(dfp_pending_file) = 1 + id(athan_index);
+                  id(dfp_pending_file) = ${athan_file_first} + id(athan_index);
                   id(dfp_play).execute();
                 }
               } else if (id(ui_menu_index) == 1) {
-                id(ui_mode) = 3;
-                if (id(htick_file_index) == 0) id(htick_index) = 0; else id(htick_index) = id(htick_file_index) - 10;
-                ESP_LOGI("ui","Entered Hourly Tick submenu (index=%d)", id(htick_index));
-                if (!id(athan_playing) && id(htick_index) > 0) {
-                  id(dfp_pending_file) = 10 + id(htick_index);
+                id(ui_mode) = 6; // Athan On/Off submenu
+                id(mute_index) = 0;
+                ESP_LOGI("ui","Entered Athan On/Off submenu");
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
               } else if (id(ui_menu_index) == 2) {
+                id(ui_mode) = 3;
+                if (id(htick_file_index) == 0) id(htick_index) = 0; else id(htick_index) = id(htick_file_index) - (${htick_file_first} - 1);
+                ESP_LOGI("ui","Entered Hourly Tick submenu (index=%d)", id(htick_index));
+                if (!id(athan_playing) && id(htick_index) > 0) {
+                  id(dfp_pending_file) = (${htick_file_first} - 1) + id(htick_index);
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 3) {
                 id(ui_mode) = 4; // location menu
                 // Initialize preview index from the persisted selection so the
                 // menu opens at the last saved location. `location_index` is
                 // preview-only while menu is open.
                 id(location_index) = id(selected_location_index);
                 ESP_LOGI("ui","Entered Location submenu (preview_index=%d)", id(location_index));
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
-              } else if (id(ui_menu_index) == 3) {
+              } else if (id(ui_menu_index) == 4) {
                 // Update: first press checks remote latest.json, second press confirms update
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 if (id(update_check_state) == 2) {
                   // Previously found an update and user confirmed -> attempt update
@@ -285,23 +326,30 @@ binary_sensor:
                   id(ui_mode) = 1; // stay in menu
                   ESP_LOGI("update", "Checking remote for latest version...");
                 }
-              } else if (id(ui_menu_index) == 4) {
+              } else if (id(ui_menu_index) == 5) {
                 // Enter volume submenu
                 id(ui_mode) = 5;
                 ESP_LOGI("ui", "Entered Volume submenu (level=%d%%)", id(volume_level));
                 if (!id(athan_playing)) {
-                  id(dfp_pending_file) = 22;
+                  id(dfp_pending_file) = ${tone_volume_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 5) {
+              } else if (id(ui_menu_index) == 6) {
+                id(ui_mode) = 7; // Info screen
+                ESP_LOGI("ui","Entered Info screen");
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_click_file};
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 7) {
                 // Cancel
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 id(ui_mode) = 0;
                 ESP_LOGI("ui","Menu cancelled");
-              } else if (id(ui_menu_index) == 6) {
+              } else if (id(ui_menu_index) == 8) {
                 // Q toggle item: enabling requires 10 consecutive select presses
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 if (!id(q_flag)) {
                   id(q_select_count) = id(q_select_count) + 1;
@@ -318,28 +366,28 @@ binary_sensor:
                   ESP_LOGI("ui","Q disabled via single press");
                 }
               } else {
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 id(ui_mode) = 0;
               }
             } else if (id(ui_mode) == 2) {
               // select athan
-              id(athan_file_index) = 1 + id(athan_index);
+              id(athan_file_index) = ${athan_file_first} + id(athan_index);
               id(dfp).stop();
-              id(dfp_pending_file) = 23;
+              id(dfp_pending_file) = ${tone_click_file};
               id(dfp_play).execute();
               id(ui_mode) = 0;
               ESP_LOGI("ui","Athan %d selected", id(athan_file_index));
             } else if (id(ui_mode) == 3) {
               // select htick (0 = None)
-              if (id(htick_index) == 0) id(htick_file_index) = 0; else id(htick_file_index) = 10 + id(htick_index);
+              if (id(htick_index) == 0) id(htick_file_index) = 0; else id(htick_file_index) = (${htick_file_first} - 1) + id(htick_index);
               id(dfp).stop();
-              id(dfp_pending_file) = 23;
+              id(dfp_pending_file) = ${tone_click_file};
               id(dfp_play).execute();
               id(ui_mode) = 0;
               ESP_LOGI("ui","Hourly Tick %d selected", id(htick_file_index));
             } else if (id(ui_mode) == 4) {
-                id(dfp_pending_file) = 23;
+                id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 if (id(location_index) != id(selected_location_index)) {
                   // apply the change only if the fetch returns a valid TZ.
@@ -350,11 +398,44 @@ binary_sensor:
             } else if (id(ui_mode) == 5) {
               // confirm volume selection
               ESP_LOGI("ui", "Volume selected: %d%%", id(volume_level));
-              id(dfp_pending_file) = 23;
+              id(dfp_pending_file) = ${tone_click_file};
               id(dfp_play).execute();
+              id(ui_mode) = 0;
+            } else if (id(ui_mode) == 6) {
+              // Athan On/Off submenu: toggle the shown prayer, or Done
+              static const int mute_prayer_idx[5] = {0, 3, 4, 5, 6};   // Fajr, Dhuhr, Asr, Maghrib, Isha
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${tone_click_file};
+                id(dfp_play).execute();
+              }
+              if (id(mute_index) < 5) {
+                int p = mute_prayer_idx[id(mute_index)];
+                id(athan_enabled)[p] = !id(athan_enabled)[p];
+                ESP_LOGI("ui","Athan for prayer index %d -> %s", p, id(athan_enabled)[p] ? "ON" : "OFF");
+              } else {
+                id(ui_mode) = 0;
+                ESP_LOGI("ui","Athan On/Off done");
+              }
+            } else if (id(ui_mode) == 7) {
+              // Info screen: Select exits
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${tone_click_file};
+                id(dfp_play).execute();
+              }
               id(ui_mode) = 0;
             }
             id(update_display).execute();
+
+  # Web / Home Assistant: is the athan (or a preview) playing right now
+  - platform: template
+    name: "Athan Playing"
+    id: web_athan_playing
+    icon: "mdi:volume-high"
+    lambda: return id(athan_playing);
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 2
+
 light:
   - platform: binary
     id: builtin_led
@@ -363,16 +444,341 @@ light:
     restore_mode: ALWAYS_OFF
     internal: true
 
-# External relay switch (exposed to Home Assistant)
+# External relay switch (exposed to Home Assistant and the web page)
 switch:
   - platform: gpio
     id: external_relay
     name: "External Relay"
     pin: GPIO13
     restore_mode: RESTORE_DEFAULT_OFF
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 5
   - platform: restart
     id: _restart
     internal: true
+
+  # Per-prayer athan ON/OFF (same flags the "Athan On/Off" menu toggles).
+  # restore_mode MUST stay DISABLED: with any other mode ESPHome calls turn_off() during setup, which
+  # (a) forced every prayer OFF at each boot and (b) ran update_display before the OLED buffer existed,
+  # crashing the ESP8266 on every boot (the V6 boot loop of 2026-09-10). The state comes from the lambda.
+  - platform: template
+    name: "Fajr Athan"
+    id: web_athan_fajr
+    icon: "mdi:bell-ring"
+    restore_mode: DISABLED
+    lambda: return id(athan_enabled)[0];
+    turn_on_action:
+      - lambda: |-
+          id(athan_enabled)[0] = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(athan_enabled)[0] = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_prayers
+      sorting_weight: 1
+  - platform: template
+    name: "Dhuhr Athan"
+    id: web_athan_dhuhr
+    icon: "mdi:bell-ring"
+    restore_mode: DISABLED
+    lambda: return id(athan_enabled)[3];
+    turn_on_action:
+      - lambda: |-
+          id(athan_enabled)[3] = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(athan_enabled)[3] = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_prayers
+      sorting_weight: 2
+  - platform: template
+    name: "Asr Athan"
+    id: web_athan_asr
+    icon: "mdi:bell-ring"
+    restore_mode: DISABLED
+    lambda: return id(athan_enabled)[4];
+    turn_on_action:
+      - lambda: |-
+          id(athan_enabled)[4] = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(athan_enabled)[4] = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_prayers
+      sorting_weight: 3
+  - platform: template
+    name: "Maghrib Athan"
+    id: web_athan_maghrib
+    icon: "mdi:bell-ring"
+    restore_mode: DISABLED
+    lambda: return id(athan_enabled)[5];
+    turn_on_action:
+      - lambda: |-
+          id(athan_enabled)[5] = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(athan_enabled)[5] = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_prayers
+      sorting_weight: 4
+  - platform: template
+    name: "Isha Athan"
+    id: web_athan_isha
+    icon: "mdi:bell-ring"
+    restore_mode: DISABLED
+    lambda: return id(athan_enabled)[6];
+    turn_on_action:
+      - lambda: |-
+          id(athan_enabled)[6] = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(athan_enabled)[6] = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_prayers
+      sorting_weight: 5
+
+  # The advanced "Q" flag is deliberately NOT exposed on the web page or Home Assistant;
+  # it can only be changed from the device menu (10 consecutive Select presses to enable).
+
+# ======================================================
+# WEB PAGE / HOME ASSISTANT CONTROLS
+# Each entity below reuses the same scripts and globals the buttons use.
+# ======================================================
+select:
+  - platform: template
+    name: "Athan Audio"
+    id: web_athan_select
+    icon: "mdi:music"
+    options: ["Athan 1", "Athan 2", "Athan 3", "Athan 4", "Athan 5", "Athan 6", "Athan 7", "Athan 8", "Athan 9", "Athan 10"]
+    set_action:
+      - lambda: |-
+          auto idx = id(web_athan_select).index_of(x);
+          if (!idx.has_value()) return;
+          id(athan_file_index) = ${athan_file_first} + (int) idx.value();
+          id(web_athan_select).publish_state(x);
+          ESP_LOGI("web", "Athan choice %d selected", (int) idx.value() + 1);
+          if (!id(athan_playing)) {
+            id(dfp_pending_file) = id(athan_file_index);
+            id(web_preview).execute();
+          }
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 1
+  - platform: template
+    name: "Hourly Tick"
+    id: web_htick_select
+    icon: "mdi:bell-outline"
+    options: ["None", "Tick 1", "Tick 2", "Tick 3", "Tick 4", "Tick 5", "Tick 6", "Tick 7", "Tick 8", "Tick 9", "Tick 10"]
+    set_action:
+      - lambda: |-
+          auto idx = id(web_htick_select).index_of(x);
+          if (!idx.has_value()) return;
+          int t = (int) idx.value();   // 0 = None
+          id(htick_file_index) = (t == 0) ? 0 : (${htick_file_first} - 1) + t;
+          id(web_htick_select).publish_state(x);
+          ESP_LOGI("web", "Hourly tick %d selected (file %d)", t, id(htick_file_index));
+          if (!id(athan_playing)) {
+            if (t == 0) {
+              id(dfp).stop();
+              id(dfp_play).stop();
+            } else {
+              id(dfp_pending_file) = id(htick_file_index);
+              id(web_preview).execute();
+            }
+          }
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 3
+  - platform: template
+    name: "Location"
+    id: web_location_select
+    icon: "mdi:map-marker"
+    # SINGLE SOURCE OF TRUTH for location keys (used to build the JSON URLs and by the Location menu).
+    # Each label must equal the folder name docs/athantimes/<key>/ and the file docs/timezones/<key>.json.
+    # NEVER insert or reorder entries: selected_location_index is persisted on every deployed device.
+    # Only replace the masjidN placeholders.
+    options: ["davis", "sclaramca", "sclaraalnoor", "sacramento", "cairo", "woodland", "masjid7", "masjid8", "masjid9", "masjid10", "masjid11", "masjid12", "masjid13", "masjid14", "masjid15"]
+    set_action:
+      - lambda: |-
+          auto idx = id(web_location_select).index_of(x);
+          if (!idx.has_value()) return;
+          if ((int) idx.value() == id(selected_location_index)) {
+            id(web_location_select).publish_state(x);
+            return;
+          }
+          if (id(ui_mode) == 4) {
+            ESP_LOGW("web", "Location submenu is open on the device, ignoring web change");
+            return;
+          }
+          id(location_index) = (int) idx.value();
+          ESP_LOGI("web", "Location '%s' requested, fetching timezone", x.c_str());
+          id(change_location_handler).execute();
+    web_server:
+      sorting_group_id: grp_location
+      sorting_weight: 1
+
+number:
+  - platform: template
+    name: "Volume"
+    id: web_volume
+    icon: "mdi:volume-medium"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 10
+    mode: slider
+    set_action:
+      - lambda: |-
+          int v = (int) (x + 0.5f);
+          v = ((v + 5) / 10) * 10;
+          if (v < 0) v = 0; if (v > 100) v = 100;
+          id(volume_level) = v;
+          id(apply_volume).execute();
+          id(web_volume).publish_state(v);
+          if (!id(athan_playing)) {
+            id(dfp_pending_file) = ${tone_volume_file};
+            id(dfp_play).execute();
+          }
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 4
+
+button:
+  - platform: template
+    name: "Stop Audio"
+    id: web_stop
+    icon: "mdi:volume-off"
+    on_press:
+      - script.execute: silence_audio
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 1
+  - platform: template
+    name: "Preview Fajr Version"
+    id: web_preview_fajr
+    icon: "mdi:weather-sunset-up"
+    on_press:
+      - lambda: |-
+          if (id(athan_playing)) return;
+          int choice = id(athan_file_index) - (${athan_file_first} - 1);
+          id(dfp_pending_file) = (${fajr_file_first} - 1) + choice;
+          id(web_preview).execute();
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 2
+  - platform: template
+    name: "Refresh Prayer Times"
+    id: web_refresh_times
+    icon: "mdi:refresh"
+    on_press:
+      - lambda: |-
+          id(prayer_times_day) = -1;
+          id(loaded_prayer_times_once) = false;
+          id(prayer_times_refreshed_at_least_once) = false;
+          id(refresh_prayer_times_if_needed).execute();
+    web_server:
+      sorting_group_id: grp_location
+      sorting_weight: 2
+  - platform: template
+    name: "Check For Update"
+    id: web_check_update
+    icon: "mdi:update"
+    on_press:
+      - lambda: |-
+          if (id(update_check_state) == 3 || id(update_check_state) == 4) return;
+          id(update_check_state) = 3;
+          id(update_display).execute();
+          id(check_update_remote).execute();
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 1
+  - platform: template
+    name: "Install Update"
+    id: web_install_update
+    icon: "mdi:download"
+    on_press:
+      - lambda: |-
+          if (id(update_check_state) != 2) {
+            ESP_LOGW("update", "No update found yet - press Check For Update first");
+            return;
+          }
+          id(update_check_state) = 4;
+          id(update_display).execute();
+          id(perform_update).execute();
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 3
+  - platform: restart
+    name: "Restart"
+    id: web_restart
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 4
+
+# Memory watchdog for the ESP8266 (80 KB RAM total). "Free Heap" on the web page / HA should stay
+# well above ~8 KB; if it drifts lower, remove entities or trim font glyphs before adding features.
+debug:
+  update_interval: 60s
+
+sensor:
+  - platform: debug
+    free:
+      name: "Free Heap"
+      id: web_free_heap
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 8
+
+text_sensor:
+  - platform: template
+    name: "Next Prayer"
+    id: web_next_prayer
+    icon: "mdi:clock-outline"
+    update_interval: never
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 3
+  - platform: template
+    name: "Today's Times"
+    id: web_today_times
+    icon: "mdi:calendar-today"
+    update_interval: never
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 4
+  - platform: template
+    name: "Update Status"
+    id: web_update_status
+    icon: "mdi:information-outline"
+    update_interval: never
+    web_server:
+      sorting_group_id: grp_system
+      sorting_weight: 2
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+      id: web_reset_reason
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 9
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: web_ip
+      web_server:
+        sorting_group_id: grp_system
+        sorting_weight: 7
 
 output:
   - platform: gpio
@@ -399,10 +805,18 @@ display:
     # flip_y: false # default is true, to make text correct, need to flip both x and y or neither
     # flip_x: false # default is true
 
+# NOTE: on the ESP8266 every font glyph costs ~32 bytes of RAM (the glyph table lives in DRAM, only the
+# bitmaps are in flash). The default glyph set is ~100 glyphs = 3.2 KB per font, so both fonts list
+# exactly the characters they print. Add a character here before printing it on the OLED.
 font:
   - file: "gfonts://Roboto"
     id: font1
     size: 20
+    glyphs: " %,-./0123456789:>?ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz()"
+  - file: "gfonts://Roboto"
+    id: font2
+    size: 14
+    glyphs: " .0123456789acfhilnotw"   # IP address, "athan.local", "no wifi"
 
 time:
   - platform: sntp
@@ -475,6 +889,17 @@ globals:
     type: int
     initial_value: "11"
     restore_value: true
+
+  - id: athan_enabled
+    type: bool[7]
+    # index = prayer index (0 Fajr, 3 Dhuhr, 4 Asr, 5 Maghrib, 6 Isha); 1 Sunrise and 2 Doha are unused
+    initial_value: "{true, true, true, true, true, true, true}"
+    restore_value: true
+
+  - id: mute_index
+    type: int
+    initial_value: "0"
+    restore_value: false
 
   - id: athan_playing
     type: bool
@@ -628,17 +1053,68 @@ script:
           id(compute_coming_prayer).execute();
           id(log_prayers).execute();
           id(update_display).execute();
+  # Stop whatever the DFPlayer is doing (athan, preview, tick). Shared by both buttons and the web page.
+  - id: silence_audio
+    mode: restart
+    then:
+      - lambda: |-
+          id(web_preview).stop();
+          id(dfp).stop();
+          id(dfp_play).stop();
+          if (id(athan_playing)) {
+            ESP_LOGI("audio", "Athan silenced");
+          }
+          id(athan_playing) = false;
+          id(update_display).execute();
+
+  # Map volume_level (0-100 %) to the DFPlayer range (0-30) and apply it. Used at boot, by the Volume menu and by the web slider.
+  - id: apply_volume
+    mode: restart
+    then:
+      - lambda: |-
+          int v = id(volume_level);
+          if (v < 0) v = 0; if (v > 100) v = 100;
+          id(volume_level) = v;
+          int vol = (v * 30 + 50) / 100;
+          if (vol < 0) vol = 0; if (vol > 30) vol = 30;
+          id(dfp).set_volume(vol);
+          ESP_LOGI("audio", "DFPlayer volume set to %d (from %d%%)", vol, v);
+
+  # Web-page preview: play dfp_pending_file for 20 s, then stop (unless a real athan started meanwhile).
+  - id: web_preview
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(athan_playing) && id(dfp_pending_file) > 0;'
+          then:
+            - lambda: 'ESP_LOGI("web", "Preview of file %d for 20s", id(dfp_pending_file));'
+            - script.execute: dfp_play
+            - delay: 20s
+            - lambda: |-
+                if (!id(athan_playing)) {
+                  id(dfp).stop();
+                  id(dfp_play).stop();
+                  ESP_LOGI("web", "Preview finished");
+                }
+
   - id: make_athan
     mode: single
     then:
       - logger.log: "Athan Calling!"
       - lambda: |-
           id(athan_playing) = true;
+          id(web_preview).stop();
           id(dfp).stop();
           id(dfp_play).stop();
       - delay: 250ms
       - lambda: |-
-          id(dfp).play_file(id(athan_file_index));
+          int choice = id(athan_file_index) - (${athan_file_first} - 1);   // 1..10
+          int f = (id(current_athan_prayer_index) == 0)
+                    ? (${fajr_file_first} - 1) + choice     // Fajr wording
+                    : (${athan_file_first} - 1) + choice;   // regular wording
+          ESP_LOGI("athan", "Playing athan choice %d as file %d (prayer index %d)", choice, f, id(current_athan_prayer_index));
+          id(dfp).play_file(f);
       - light.turn_on: builtin_led
       - delay: 5min
       - light.turn_off: builtin_led
@@ -782,7 +1258,7 @@ script:
             - logger.log: "Quyam starting (Q flag is ON)"
             - switch.turn_on: external_relay
             - lambda: |-
-                id(dfp_pending_file) = random(25, 35);
+                id(dfp_pending_file) = random(${quyam_file_first}, ${quyam_file_last} + 1);
                 id(dfp_play).execute();
             - delay: 15min
             - switch.turn_off: external_relay
@@ -798,13 +1274,13 @@ script:
       - http_request.get:
           url: !lambda |-
             char u[256];
-            static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","woodland","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
             int li = id(location_index);
-            if (li < 0 || li > 14) li = 0;
-            const char* loc = locs[li];
+            if (li < 0 || li >= (int) id(web_location_select).size()) li = 0;
+            auto loc = id(web_location_select).at(li);   // key list lives in the Location select options
+            const char* key = loc.has_value() ? loc.value().c_str() : "davis";
             snprintf(u, sizeof(u),
               "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/timezones/%s.json",
-              loc);
+              key);
             ESP_LOGI("tz", "TZ URL = %s", u);
             return std::string(u);
           capture_response: false
@@ -829,7 +1305,7 @@ script:
 
                   if (total_bytes == 0) {
                     ESP_LOGE("tz", "Empty timezone response");
-                    id(ui_mode) = 0;
+                    if (id(ui_mode) == 4) id(ui_mode) = 0;
                     id(update_display).execute();
                     return;
                   }
@@ -843,14 +1319,14 @@ script:
                   auto err = deserializeJson(doc, json_text);
                   if (err) {
                     ESP_LOGE("tz", "JSON parse failed: %s", err.c_str());
-                    id(ui_mode) = 0;
+                    if (id(ui_mode) == 4) id(ui_mode) = 0;
                     id(update_display).execute();
                     return;
                   }
 
                   if (!doc["TZ"].is<const char*>()) {
                     ESP_LOGE("tz", "TZ key missing or invalid");
-                    id(ui_mode) = 0;
+                    if (id(ui_mode) == 4) id(ui_mode) = 0;
                     id(update_display).execute();
                     return;
                   }
@@ -858,7 +1334,7 @@ script:
                   std::string tz(doc["TZ"].as<const char*>());
                   if (tz.size() == 0) {
                     ESP_LOGE("tz", "TZ value empty");
-                    id(ui_mode) = 0;
+                    if (id(ui_mode) == 4) id(ui_mode) = 0;
                     id(update_display).execute();
                     return;
                   }
@@ -877,7 +1353,7 @@ script:
                   ESP_LOGI("tz", "Applied new timezone '%s' and location index %d", tz.c_str(), id(selected_location_index));
                   id(update_display).execute();
       - lambda: |-
-          id(ui_mode) = 0;
+          if (id(ui_mode) == 4) id(ui_mode) = 0;
           id(update_display).execute();
 
   - id: load_prayer_times
@@ -890,13 +1366,13 @@ script:
             int day  = now.day_of_year;
 
             char u[256];
-            static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","woodland","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
             int li = id(selected_location_index);
-            if (li < 0 || li > 14) li = 0;
-            const char* loc = locs[li];
+            if (li < 0 || li >= (int) id(web_location_select).size()) li = 0;
+            auto loc = id(web_location_select).at(li);   // key list lives in the Location select options
+            const char* key = loc.has_value() ? loc.value().c_str() : "davis";
             snprintf(u, sizeof(u),
               "http://rawcdn.githack.com/et7ad/esp_athan/master/docs/athantimes/%s/%d/%03d.json",
-              loc, year, day);
+              key, year, day);
 
             ESP_LOGI("prayer", "URL = %s", u);
             return std::string(u);
@@ -1146,10 +1622,72 @@ script:
             ESP_LOGI("quyam", "Quyam scheduled at %02d:%02d (25min before fajr)", id(quyam_next_hour), id(quyam_next_minute));
           }
 
+  # Push the current globals to the web/HA entities (only publishes what changed).
+  # Runs from its own 1 s interval (see the bottom of the file) rather than inside update_display, so
+  # the publish -> API/web callbacks always start from the shallow main-loop stack (ESP8266 has ~4 KB).
+  # Format strings use PSTR/snprintf_P so they live in flash, not DRAM.
+  - id: sync_web_state
+    mode: restart
+    then:
+      - lambda: |-
+          char buf[200];
+          // Athan audio choice
+          snprintf_P(buf, sizeof(buf), PSTR("Athan %d"), id(athan_file_index) - (${athan_file_first} - 1));
+          if (id(web_athan_select).state != buf) id(web_athan_select).publish_state(buf);
+          // Hourly tick choice
+          if (id(htick_file_index) == 0) snprintf_P(buf, sizeof(buf), PSTR("None"));
+          else snprintf_P(buf, sizeof(buf), PSTR("Tick %d"), id(htick_file_index) - (${htick_file_first} - 1));
+          if (id(web_htick_select).state != buf) id(web_htick_select).publish_state(buf);
+          // Location
+          {
+            auto loc = id(web_location_select).at(id(selected_location_index));
+            if (loc.has_value() && id(web_location_select).state != loc.value()) id(web_location_select).publish_state(loc.value());
+          }
+          // Volume
+          if (!id(web_volume).has_state() || (int) id(web_volume).state != id(volume_level)) id(web_volume).publish_state(id(volume_level));
+          // Next prayer and today's times
+          static const char* prayer_names[7] = {"Fajr", "Sunrise", "Doha", "Dhuhr", "Asr", "Maghrib", "Isha"};
+          auto now = id(sntp_time).now();
+          if (now.is_valid() && id(prayer_times_refreshed_at_least_once)) {
+            int npi = id(next_prayer_index);
+            int total = id(next_prayer_hour) * 60 + id(next_prayer_minute) - (now.hour * 60 + now.minute);
+            if (total < 0) total += 24 * 60;
+            bool muted = (npi != 1 && npi != 2) && !id(athan_enabled)[npi];
+            snprintf_P(buf, sizeof(buf), PSTR("%s %02d:%02d (in %dh %02dm)%s"), prayer_names[npi],
+                       id(next_prayer_hour), id(next_prayer_minute), total / 60, total % 60, muted ? " [athan off]" : "");
+          } else {
+            snprintf_P(buf, sizeof(buf), PSTR("waiting for time and prayer data"));
+          }
+          if (id(web_next_prayer).state != buf) id(web_next_prayer).publish_state(buf);
+          if (id(prayer_times_refreshed_at_least_once)) {
+            snprintf_P(buf, sizeof(buf), PSTR("Fajr %02d:%02d, Sunrise %02d:%02d, Doha %02d:%02d, Dhuhr %02d:%02d, Asr %02d:%02d, Maghrib %02d:%02d, Isha %02d:%02d"),
+                       id(prayer_hours)[0], id(prayer_minutes)[0], id(prayer_hours)[1], id(prayer_minutes)[1],
+                       id(prayer_hours)[2], id(prayer_minutes)[2], id(prayer_hours)[3], id(prayer_minutes)[3],
+                       id(prayer_hours)[4], id(prayer_minutes)[4], id(prayer_hours)[5], id(prayer_minutes)[5],
+                       id(prayer_hours)[6], id(prayer_minutes)[6]);
+          } else {
+            snprintf_P(buf, sizeof(buf), PSTR("not loaded yet"));
+          }
+          if (id(web_today_times).state != buf) id(web_today_times).publish_state(buf);
+          // Update status (also carries the firmware version)
+          switch (id(update_check_state)) {
+            case 1: snprintf_P(buf, sizeof(buf), PSTR("V%d up to date"), ${current_version}); break;
+            case 2: snprintf_P(buf, sizeof(buf), PSTR("V%d -> V%d available, press Install Update"), ${current_version}, id(update_latest_version)); break;
+            case 3: snprintf_P(buf, sizeof(buf), PSTR("V%d checking.."), ${current_version}); break;
+            case 4: snprintf_P(buf, sizeof(buf), PSTR("V%d installing.."), ${current_version}); break;
+            default: snprintf_P(buf, sizeof(buf), PSTR("V%d (press Check For Update)"), ${current_version}); break;
+          }
+          if (id(web_update_status).state != buf) id(web_update_status).publish_state(buf);
+
   - id: update_display
     mode: restart
     then:
       - lambda: |-
+          // Never touch the OLED before its setup() has allocated the buffer (or if it failed).
+          // A trigger firing during component setup would otherwise crash the ESP8266 (see CLAUDE.md).
+          // Use is_ready(): a polling display has no loop(), so it stays in the SETUP state for ever
+          // and is_in_loop_state()/is_idle() are never true for it (that blanked the screen once).
+          if (!id(oled).is_ready()) return;
           id(oled).clear();
           auto now = id(sntp_time).now();
           if (!now.is_valid() && id(ui_mode)==0) {
@@ -1205,16 +1743,16 @@ script:
           if (id(ui_mode) != 0) {
             if (id(ui_mode) == 1) {
               // Main menu: first line fixed, second line shows current item
-              static const char* menu_items[7] = {"Athan","Hourly Tick","Location","Update","Volume","Cancel","Q"};
+              static const char* menu_items[9] = {"Athan","Athan On/Off","Hourly Tick","Location","Update","Volume","Info","Cancel","Q"};
               id(oled).print(0, 0, id(font1), "Menu:");
-              if (id(ui_menu_index) == 6) {
+              if (id(ui_menu_index) == 8) {
                 snprintf(line2, sizeof(line2), "Q: %s", (id(q_flag) ? "ON" : "OFF"));
               } else {
                 snprintf(line2, sizeof(line2), "%s", menu_items[id(ui_menu_index)]);
               }
               id(oled).print(0, 22, id(font1), line2);
               // When Update item selected, show version info on third row
-              if (id(ui_menu_index) == 3) {
+              if (id(ui_menu_index) == 4) {
                 if (id(update_check_state) == 0) {
                   // Not checked yet: show current version only
                   snprintf(line3, sizeof(line3), "V%d", ${current_version});
@@ -1235,7 +1773,7 @@ script:
               snprintf(line1, sizeof(line1), "Athan:");
               id(oled).print(0, 0, id(font1), line1);
               snprintf(line2, sizeof(line2), "%d / 10", id(athan_index) + 1);
-              snprintf(line3, sizeof(line3), "File: %d", 1 + id(athan_index));
+              snprintf(line3, sizeof(line3), "File: %d", ${athan_file_first} + id(athan_index));
               id(oled).print(0, 22, id(font1), line2);
               id(oled).print(0, 44, id(font1), line3);
             } else if (id(ui_mode) == 3) {
@@ -1245,17 +1783,17 @@ script:
                 snprintf(line2, sizeof(line2), "None");
               } else {
                 snprintf(line2, sizeof(line2), "%d / 10", id(htick_index));
-                snprintf(line3, sizeof(line3), "File: %d", 10 + id(htick_index));
+                snprintf(line3, sizeof(line3), "File: %d", (${htick_file_first} - 1) + id(htick_index));
               }
               id(oled).print(0, 22, id(font1), line2);
               if (id(htick_index) > 0) {
                 id(oled).print(0, 44, id(font1), line3);
               }
             } else if (id(ui_mode) == 4) {
-              static const char* locs[15] = {"davis","sclaramca","sclaraalnoor","sacramento","cairo","woodland","masjid7","masjid8","masjid9","masjid10","masjid11","masjid12","masjid13","masjid14","masjid15"};
-              // Location submenu: short header + location name
+              // Location submenu: short header + location key (from the Location select's option list)
               id(oled).print(0, 0, id(font1), "Location:");
-              snprintf(line2, sizeof(line2), "%s", locs[id(location_index)]);
+              auto loc = id(web_location_select).at(id(location_index));
+              snprintf(line2, sizeof(line2), "%s", loc.has_value() ? loc.value().c_str() : "?");
               id(oled).print(0, 22, id(font1), line2);
             } else if (id(ui_mode) == 5) {
               // Volume submenu
@@ -1263,6 +1801,26 @@ script:
               snprintf(line2, sizeof(line2), "%d%%", id(volume_level));
               id(oled).print(0, 0, id(font1), line1);
               id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 6) {
+              // Athan On/Off submenu
+              static const char* mute_names[6] = {"Fajr", "Dhuhr", "Asr", "Maghrib", "Isha", "Done"};
+              static const int mute_prayer_idx[5] = {0, 3, 4, 5, 6};
+              id(oled).print(0, 0, id(font1), "Athan On/Off");
+              if (id(mute_index) < 5) {
+                snprintf(line2, sizeof(line2), "%s: %s", mute_names[id(mute_index)],
+                         id(athan_enabled)[mute_prayer_idx[id(mute_index)]] ? "ON" : "OFF");
+              } else {
+                snprintf(line2, sizeof(line2), "Done");
+              }
+              id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 7) {
+              // Info screen: version, IP address (small font) and the mDNS name
+              snprintf(line1, sizeof(line1), "Info  V%d", ${current_version});
+              id(oled).print(0, 0, id(font1), line1);
+              // Arduino-core call (WiFi.isConnected() is already used above); ESPHome's own getter names change between releases
+              String ip = WiFi.isConnected() ? WiFi.localIP().toString() : String("no wifi");
+              id(oled).print(0, 26, id(font2), ip.c_str());
+              id(oled).print(0, 46, id(font2), "athan.local");
             }
             id(oled).display();
             return;
@@ -1284,6 +1842,20 @@ script:
             id(oled).print(0, 0, id(font1), line1);
             id(oled).print(0, 22, id(font1), line2);
             id(oled).print(0, 44, id(font1), line3);
+            // Next prayer has its athan turned OFF: strike through the last two letters of its name only
+            {
+              int npi = id(next_prayer_index);
+              bool is_main_prayer = (npi != 1 && npi != 2);
+              if (is_main_prayer && !id(athan_enabled)[npi]) {
+                int x1, y1, w_full, h_full, w_head, h_head;
+                std::string name(next_prayer_name);
+                std::string head = name.substr(0, name.size() - 2);
+                id(oled).get_text_bounds(0, 22, name.c_str(), id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w_full, &h_full);
+                id(oled).get_text_bounds(0, 22, head.c_str(), id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w_head, &h_head);
+                int sy = 22 + h_full / 2 + 2;   // roughly mid-height of the lowercase letters
+                id(oled).line(w_head, sy, w_full - 1, sy);
+              }
+            }
           }
 
           id(oled).display();
@@ -1319,12 +1891,15 @@ interval:
           bool prayer_is_isha = id(next_prayer_index) == 6;
           
           if ( time_more_than_prayer && (prayer_is_isha || less_than_isha) ) {
-              // Skip making athan for Sunrise (1) and Doha (2)
-              if (id(next_prayer_index)!=1 && id(next_prayer_index)!=2){
+              int pi = id(next_prayer_index);
+              bool is_main_prayer = (pi != 1 && pi != 2);   // Sunrise (1) and Doha (2) never call the athan
+              if (is_main_prayer && id(athan_enabled)[pi]) {
+                id(current_athan_prayer_index) = pi;      // set before make_athan so it picks the Fajr file at Fajr
                 id(make_athan).execute();
-                id(current_athan_prayer_index) = id(next_prayer_index);
+              } else if (is_main_prayer) {
+                ESP_LOGI("prayer", "Athan for prayer index %d is OFF, staying quiet", pi);
               }
-              ESP_LOGI("prayer", "Prayer time reached: index=%d!", id(next_prayer_index));
+              ESP_LOGI("prayer", "Prayer time reached: index=%d!", pi);
               id(Jump_to_next_prayer).execute();
               id(update_display).execute();
           }
@@ -1346,3 +1921,46 @@ interval:
            id(update_display).execute();
           }
           return;
+  # Keep the web page / Home Assistant entities in step with the globals (publishes only on change).
+  - interval: 1s
+    then:
+      - script.execute: sync_web_state
+  # OLED hot-plug watchdog. The display is optional: if it is missing or dead at boot, the I2C probe in its
+  # setup() marks it failed and everything else keeps running (buttons, web page, athan). Every 10 s this
+  # sends a zero-length I2C write (an ACK probe, ~0.1 ms). A display that appears later is initialised
+  # on the spot. A display that was working, disappeared and came back has lost power and needs its init
+  # sequence again; ESPHome re-allocates the 1 KB frame buffer on every setup() and never frees the old
+  # one, so re-inits are capped per boot (press Restart beyond that).
+  - interval: 10s
+    then:
+      - lambda: |-
+          static bool oled_lost = false;
+          static uint8_t oled_setups = 0;
+          const uint8_t max_setups = 4;
+          bool ack = (id(oled).write(nullptr, 0) == i2c::ERROR_OK);
+          if (id(oled).is_failed()) {
+            if (ack && oled_setups < max_setups) {
+              oled_setups++;
+              ESP_LOGI("oled", "Display detected, initialising (%d/%d)", (int) oled_setups, (int) max_setups);
+              id(oled).reset_to_construction_state();
+              id(oled).call();
+              id(update_display).execute();
+            }
+            return;
+          }
+          if (!ack) {
+            if (!oled_lost) ESP_LOGW("oled", "Display stopped responding");
+            oled_lost = true;
+            return;
+          }
+          if (oled_lost) {
+            oled_lost = false;
+            if (oled_setups < max_setups) {
+              oled_setups++;
+              ESP_LOGI("oled", "Display is back, re-initialising (%d/%d)", (int) oled_setups, (int) max_setups);
+              id(oled).setup();
+              id(update_display).execute();
+            } else {
+              ESP_LOGW("oled", "Display is back but the re-init limit was reached; press Restart to use it");
+            }
+          }

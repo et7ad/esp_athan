@@ -13,11 +13,12 @@
 #
 # What it does
 # ------------
-# 1. Copies A1–A10 first  -> become files 1–10  (Athan audios).
+# 1. Copies A1–A10 first  -> become files 1–10  (Athan audios, regular wording).
 # 2. Copies B1–B10 next   -> become files 11–20 (hourly tick range).
 # 3. Copies C1–C4 next    -> become files 21–24 (UI / menu sounds).
-# 4. Copies all D*.mp3    -> any additional sounds after that.
-# 5. Copies all Z*.mp3    -> any extra sounds at the end.
+# 4. Copies all D*.mp3    -> become files 25–34 (Quyam audio, picked at random).
+# 5. Copies F1–F10 next   -> become files 35–44 (Fajr-wording athans; F<k> pairs with A<k>).
+# 6. Copies all Z*.mp3    -> become files 45–48 (fallback message; MUST be last).
 #
 # How to use it
 # -------------
@@ -55,12 +56,17 @@ for i in {1..4}; do
     cp "$SRC/C$i.mp3" "$DEST/"
 done
 
-# Copy all D files (D1, D2, D3… automatically)
+# Copy all D files (D1, D2, D3… automatically) -> files 25-34 (order does not matter, picked at random)
 for f in "$SRC"/D*.mp3; do
     cp "$f" "$DEST/"
 done
 
-# Copy all Z files (Z1, Z2, Z3… automatically)
+# Copy F1–F10 (Fajr-wording athans) -> files 35–44. F<k> is the Fajr version of A<k>.
+for i in {1..10}; do
+    cp "$SRC/F$i.mp3" "$DEST/"
+done
+
+# Copy all Z files (fallback message) -> files 45-48. MUST stay last.
 for f in "$SRC"/Z*.mp3; do
     cp "$f" "$DEST/"
 done

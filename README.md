@@ -38,6 +38,7 @@ For more detail:
 
 - **DFPlayer loops many clips:** Some non-original DFPlayer modules occasionally mis-handle UART commands and start playing several files in rapid succession. This usually happens only on certain boots; if the device boots cleanly, it keeps working fine. Power-cycle the device (unplug then plug back in) to clear it. Even with the clone modules, this is a rare occurrence.
 - **Display freezes or shows artifacts:** Cheaper OLED displays replicas can rarely lock up, go blank, or show artifacts. Restarting the device restores the screen and normal operation.
+- **No display, or display plugged in later (firmware V6+):** the screen is optional. Without it the device still boots, connects, runs the athan and can be set up from the web page (section 1.6). Plug the display in at any time and it is detected and initialised within about 10 seconds. If a display that was working is unplugged and plugged back several times in one session, press **Restart** on the web page to bring it back.
 
 ---
 
@@ -111,6 +112,8 @@ When the scheduled time is reached, the DFPlayer plays the chosen Athan file and
 
 If you leave the menu untouched for about a minute, it closes automatically and goes back to the normal screen.
 
+Everything in this section (and a **Stop Audio** button) is also available from the web page, see section 1.6.
+
 > **Note about speakers and the AUX jack**  
 > The PCB supports directly-connected speaker **and** an AUX jack for an external amplified speaker. If the onboard speaker is not good enough (too quiet or distorted), you can plug an external powered speaker into the AUX jack and then disconnect or switch off the onboard speaker using the speaker switch on the PCB so only the external speaker is active.
 
@@ -120,13 +123,15 @@ If you leave the menu untouched for about a minute, it closes automatically and 
 
 The main menu has these entries, cycled with **Next** and chosen with **Select**:
 
-1. **Athan audio** – preview and choose which Athan file is used.
-2. **Hourly tick** – optional short sound at the top of each hour. The first choice in the list is “None” to disable it.
-3. **Location** – choose which mosque/location profile the device should use.
-4. **Update firmware** – check if a newer firmware version is available and, if so, apply it over the air.
-5. **Volume** – change volume in 10% steps.
-6. **(Optional) Q:** – an internal/advanced setting. It is **false/off by default** and you normally do **not** need to change it. If you happen to turn it **On** and then notice the device behaving in a way you did not expect, simply switch it back **Off** from this menu and things will return to normal.
-7. **Exit menu** – go back to the main screen.
+1. **Athan audio** – preview and choose which Athan recording is used.
+2. **Athan On/Off** – turn the athan on or off per prayer (Fajr, Dhuhr, Asr, Maghrib, Isha). All ON by default.
+3. **Hourly tick** – optional short sound at the top of each hour. The first choice in the list is “None” to disable it.
+4. **Location** – choose which mosque/location profile the device should use.
+5. **Update firmware** – check if a newer firmware version is available and, if so, apply it over the air.
+6. **Volume** – change volume in 10% steps.
+7. **Info** – firmware version, the device’s IP address and its `athan.local` name.
+8. **Cancel** – go back to the main screen.
+9. **(Optional) Q:** – an internal/advanced setting. It is **false/off by default** and you normally do **not** need to change it. If you happen to turn it **On** and then notice the device behaving in a way you did not expect, simply switch it back **Off** from this menu and things will return to normal.
 
 #### 1.4.1 Choosing Athan audio
 
@@ -134,9 +139,20 @@ The main menu has these entries, cycled with **Next** and chosen with **Select**
 - Use **Next** to preview different Athan recordings from the microSD card.
 - Press **Select** to store the currently previewed file as the default.
 
-The firmware expects up to 10 Athan files on the DFPlayer card, numbered in the order they were copied (see SD‑card section below).
+The firmware expects up to 10 Athan recordings on the DFPlayer card, numbered in the order they were copied (see SD‑card section below).
 
-#### 1.4.2 Hourly tick
+Since firmware V6 every Athan choice has **two recordings** on the card: the regular one and a Fajr version with the Fajr wording. The device picks the Fajr version automatically at Fajr time. The preview in this menu plays the regular version; the web page has a **Preview Fajr Version** button.
+
+#### 1.4.2 Athan On/Off per prayer
+
+- Open **Athan On/Off** from the menu.
+- Use **Next** to move through Fajr, Dhuhr, Asr, Maghrib, Isha and Done.
+- Press **Select** on a prayer to toggle it between **ON** and **OFF**. The menu stays open so you can change several in a row.
+- Press **Select** on **Done** to go back to the normal screen.
+
+All five are ON by default and the setting survives reboots. A prayer that is OFF still shows on the normal screen and in the countdown; only the athan (and the LED) stay quiet. As a reminder, the last two letters of that prayer’s name are struck through on the normal screen. Sunrise and Doha never call the athan, so they are not in this list.
+
+#### 1.4.3 Hourly tick
 
 - Open **Hourly tick** from the menu.
 - Use **Next** to cycle through “None” and up to 10 different short sounds.
@@ -144,7 +160,7 @@ The firmware expects up to 10 Athan files on the DFPlayer card, numbered in the 
 
 If you choose a sound, it will play once at the start of each hour (when the device is not already playing Athan).
 
-#### 1.4.3 Location
+#### 1.4.4 Location
 
 - Open **Location** from the menu.
 - Use **Next** to move through the list of locations.
@@ -152,7 +168,7 @@ If you choose a sound, it will play once at the start of each hour (when the dev
 
 The list currently has 15 slots; some are already mapped to real mosques and others are placeholders (see “Mosques and JSON files” below).
 
-#### 1.4.4 Update firmware
+#### 1.4.5 Update firmware
 
 - Open **Update firmware** from the menu.
 - First press of **Select** checks a small `latest.json` file in the JSON host repo.
@@ -164,13 +180,17 @@ This uses ESPHome’s OTA support and a simple HTTP endpoint. You do not need to
 
 When you host your own firmware, make sure the corresponding `.md5` file contains **only** the raw MD5 checksum string (no filename, no extra text or spaces), otherwise the integrity check will fail.
 
-#### 1.4.5 Volume
+#### 1.4.6 Volume
 
 - Open **Volume** from the menu.
 - Use **Next** to step through volume in 10% increments.
 - Press **Select** to keep the current level.
 
 The device plays a short tone at the new volume so you can hear the change.
+
+#### 1.4.7 Info
+
+Shows the firmware version, the device’s IP address on your Wi‑Fi and its `athan.local` name. Press **Select** to go back. Use it when `http://athan.local` does not open in your browser: type the IP address instead (see section 1.6).
 
 ### 1.5 Home Assistant integration
 
@@ -182,10 +202,67 @@ Out of the box the following are especially useful:
 	You can use this to switch a small external relay module, an amplifier, or another external circuit. I usually use it with the `IoT Power Strip` shown in the picture (can easily find on different stores).
 	![IoT Power Strip](images/IoT_power_strip.jpg)
 - **API / OTA support** via ESPHome for upgrades.
-- **web server** I have this disabled which is an alternative way to control the relay from a browser. However, if you want me to enable it, let me know and I can add it back in next update.
- 
+- **Everything on the web page** (section 1.6) is also an entity in Home Assistant: per‑prayer athan switches, athan / tick / location selects, the volume slider, the Stop Audio button, the next‑prayer text and so on.
+
 > **Note for Home Assistant pairing**  
 > When adding this device to Home Assistant (via ESPHome integration), use the following API key when prompted: `jAOYf5QQGoONCqGQnC7fwPhSeb/ZTUTlawp1Lvu63ZI=`.
+
+### 1.6 Web page: `http://athan.local`
+
+The device runs ESPHome’s built‑in web page. Open `http://athan.local` (or `http://<ip-address>`, see the **Info** menu) from any phone or computer on the same Wi‑Fi. No app and no Home Assistant needed. Everything the two buttons can do is there, grouped as:
+
+| Group | Controls |
+|---|---|
+| Now | **Stop Audio** (stops the athan, a preview or a tick), **Athan Playing**, **Next Prayer** with countdown, **Today's Times** |
+| Athan | **Athan Audio** (choose 1–10, plays a 20 s preview), **Preview Fajr Version**, **Hourly Tick** (None, 1–10), **Volume** slider |
+| Athan On/Off per Prayer | one switch each for Fajr, Dhuhr, Asr, Maghrib and Isha |
+| Location | **Location** (same 15 keys as the menu; changing it fetches the timezone and today’s times), **Refresh Prayer Times** |
+| System | **Check For Update**, **Update Status** (includes the firmware version), **Install Update**, **Restart**, **External Relay**, **IP Address**, **Free Heap**, **Reset Reason** |
+
+Changes made with the buttons show up on the page within a second, and the other way round. The advanced `Q:` setting is intentionally not on the page; it can only be changed from the device menu.
+
+At the bottom of the page there is an **OTA Update** form: pick a firmware `.bin` and press Update to flash the device from the browser. Anyone on your Wi‑Fi can use it, so keep the network private.
+
+If the file dialog greys out your `.bin` file (this happens in Safari on macOS, which types `.bin` as MacBinary while the form only accepts `application/octet-stream`), either use Chrome, or upload from a terminal, which skips the picker entirely:
+
+```bash
+curl -F "update=@/path/to/firmware.bin" http://athan.local/update
+```
+
+The same controls are available as plain HTTP calls, handy for scripts or phone shortcuts (`athan.local` can be replaced with the IP address):
+
+```bash
+curl -X POST http://athan.local/button/stop_audio/press                      # stop whatever is playing
+curl -X POST "http://athan.local/number/volume/set?value=40"                 # volume 40 %
+curl -X POST "http://athan.local/select/athan_audio/set?option=Athan%203"    # athan recording 3
+curl -X POST http://athan.local/switch/fajr_athan/turn_off                   # or turn_on / toggle
+curl -X POST "http://athan.local/select/location/set?option=woodland"
+curl http://athan.local/text_sensor/next_prayer                              # read a value
+```
+
+#### 1.6.1 If `athan.local` does not open
+
+The `.local` name uses mDNS, which depends on your phone, computer and router more than on the device itself:
+
+- **Android** browsers generally cannot resolve `.local` names at all. Use the IP address.
+- Some routers and mesh systems do not pass mDNS between the 2.4 GHz band (where the clock lives) and 5 GHz clients, or block multicast entirely.
+- After the device gets a new IP address from the router, your computer may keep the old one cached for a while.
+
+What works reliably:
+
+1. **Reserve the IP address in your router** (called DHCP reservation or static lease, keyed on the clock’s MAC address) so it never changes, then bookmark `http://<that address>`.
+2. Read the IP address from the **Info** menu (or from Home Assistant) whenever you need it.
+3. Many routers also answer the device’s DHCP hostname: try `http://athan/` or `http://athan.lan/`.
+
+On the firmware side there is nothing left to switch on: ESPHome 2026.x already runs a hardened mDNS responder on the ESP8266, and Wi‑Fi power saving is off by default on this chip.
+
+#### 1.6.2 Memory readout
+
+The ESP8266 has only 80 KB of RAM and Wi‑Fi, the web page, Home Assistant and the prayer‑time downloads all share it. **Free Heap** on the web page (System group) is the health number: it should stay well above about 8 KB. **Reset Reason** shows why the device last restarted (`Power On`, `Software/Hardware Watchdog`, `Exception`, ...). If you see `Exception` please contact me in this case to investigate, because it is not expected in normal operation.
+
+#### 1.6.3 Live log on the web page
+
+Log streaming to the web page is **off** by default to save memory and network traffic on the ESP8266. To turn it on, set `log: true` under `web_server:` in `firmware/athan.yaml` and rebuild. The state updates on the page do not depend on it.
 
 ---
 
@@ -299,13 +376,20 @@ The DFPlayer uses a simple “file number” scheme based on the order files wer
 
 ### 3.2 File layout expected by the firmware
 
-The YAML uses these ranges by default:
+The DFPlayer numbers files by **copy order**, so use `SDCard_files/cpy_script.sh` (or `scripts/sd_card_cpy_script.sh`) rather than drag‑and‑drop. Firmware V6 expects:
 
-- Files **1–10:** Athan recordings (selectable and previewable from the menu).
-- Files **11–20:** Hourly tick sounds (also selectable from the menu).
-- Files **21–23:** A few fixed indices are used for small UI sounds (for example, menu clicks). You can keep those as short beeps.
+| Files | Source names | Purpose |
+|---|---|---|
+| 1–10 | `A1`–`A10` | Athan recordings, regular wording (choice *k* = file *k*) |
+| 11–20 | `B1`–`B10` | Hourly tick sounds |
+| 21–24 | `C1`–`C4` | Short UI tones (22 = volume tone, 23 = menu click) |
+| 25–34 | `D1`–`D10` | Audio used by the advanced `Q` feature |
+| 35–44 | `F1`–`F10` | Athan recordings with the **Fajr wording**. `F<k>` is the Fajr version of `A<k>` and is played automatically at Fajr |
+| 45–48 | `Z_fallback_1`–`4` | Short “please restart” message that plays if the DFPlayer glitches. Must be copied **last** |
 
-You can always change the mapping later in `athan.yaml`, but this default is enough to get started.
+If a reciter has no Fajr recording, copy `A<k>` again as `F<k>` so the slot is never empty. All file numbers live in the `substitutions:` block at the top of `athan.yaml`, so a different layout is a one‑place change.
+
+> Cards prepared for firmware V5 or older (no `F` files) must be re‑copied for V6. Otherwise the Fajr athan would play the fallback message (choices 1–4) or nothing (choices 5–10).
 
 ---
 
@@ -366,13 +450,13 @@ Note: The TZ string format follows the POSIX convention used in many Unix‑like
 
 ### 4.3 URL pattern used in the firmware
 
-In `athan.yaml` you will see two small arrays of location keys:
+In `athan.yaml` the list of location keys lives in exactly one place: the `options:` of the **Location** select (`id: web_location_select`):
 
-```cpp
-"davis","sclaramca","sclaraalnoor","sacramento","cairo","woodland","masjid7",...,"masjid15"
+```yaml
+options: ["davis", "sclaramca", "sclaraalnoor", "sacramento", "cairo", "woodland", "masjid7", ..., "masjid15"]
 ```
 
-They are used to build URLs like:
+The firmware, the Location menu and the web page all read that list. It is used to build URLs like:
 
 - **Timezones:**
 
