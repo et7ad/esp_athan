@@ -15,6 +15,12 @@ substitutions:
   fajr_file_first: "35"    # F1..F10 -> files 35..44 Fajr-wording athans (choice k -> file 34+k)
   # Z_fallback_1..4 -> files 45..48. Never referenced by number; must be copied LAST.
 
+  # OLED orientation / contrast (the display: block reads these; change them here).
+  oled_flip_x: "true"      # ESPHome default true; set both flips to false to rotate the screen 180 degrees
+  oled_flip_y: "true"
+  oled_contrast: "1.0"     # 0.0 .. 1.0
+  oled_reset_pin: "16"     # GPIO16 to the module's RES pin if it has one (4-pin modules do not); pulsed by ESPHome at every setup
+
   # ---------------------------------------------------------------
   # NOTE for people just changing the OLED / SSD1306 display
   # ---------------------------------------------------------------
@@ -24,8 +30,8 @@ substitutions:
   # Common things you may want to tweak:
   #   - I2C address: the line `address: ` can be changed between
   #     `0x3C` and `0x3D` depending on your model.
-  #   - Orientation: uncomment and adjust `flip_x` / `flip_y` in
-  #     the same `display:` block if your screen is mounted upside
+  #   - Orientation: set the `oled_flip_x` / `oled_flip_y`
+  #     substitutions just below if your screen is mounted upside
   #     down or mirrored (to rotate 180° you usually flip both).
   #
   # You normally do NOT need to touch other parts of this file if
@@ -64,6 +70,32 @@ esphome:
             - light.turn_off: builtin_led
             - logger.log: "resetting"
             - switch.turn_on: _restart
+      # Hardware unlock for the button lock: power up holding exactly ONE of the two buttons.
+      # (Both held is the Wi-Fi reset above, unchanged.)
+      - if:
+          condition:
+            lambda: 'return id(buttons_locked) && (id(ui_next).state != id(ui_select).state);'
+          then:
+            - lambda: |-
+                id(buttons_locked) = false;
+                ESP_LOGI("ui", "Buttons unlocked (one button held at power-up)");
+            - light.turn_on: builtin_led
+            - delay: 150ms
+            - light.turn_off: builtin_led
+            - delay: 150ms
+            - light.turn_on: builtin_led
+            - delay: 150ms
+            - light.turn_off: builtin_led
+            - delay: 150ms
+            - light.turn_on: builtin_led
+            - delay: 150ms
+            - light.turn_off: builtin_led
+      - lambda: |-
+          // First boot after the update: Fajr volume starts equal to the main volume.
+          if (id(fajr_volume_level) < 0) {
+            id(fajr_volume_level) = id(volume_level);
+            ESP_LOGI("audio", "Fajr volume initialised to %d%% (from main volume)", id(fajr_volume_level));
+          }
       # # # for testing with RPI:
       # - output.turn_off: gpio0_output
       # - delay: 200ms
@@ -97,6 +129,10 @@ api:
 # there as entities (see the select:/number:/switch:/button:/text_sensor: blocks below), and the same
 # entities show up in Home Assistant. REST examples: README section 1.6.
 web_server:
+  # Version 3 page: grouped sections (see sorting_groups), icons and an uptime line. Known downside, accepted:
+  # its firmware-upload form carries accept="application/octet-stream", so Safari on macOS greys out .bin
+  # files; upload from Chrome, or from a terminal: curl -F "update=@firmware.bin" http://athan.local/update
+  # (the version 2 page has no such filter but shows one flat alphabetical list).
   version: 3
   # Live log streaming to the web page is OFF to save memory and traffic on the ESP8266.
   # Set `log: true` to see the device log at the bottom of the web page.
@@ -173,6 +209,12 @@ binary_sensor:
       then:
         - lambda: |-
             id(ui_last_activity) = millis();
+            if (id(buttons_locked)) {
+              // Locked: the only thing a button does is silence whatever is playing
+              ESP_LOGI("ui","Next pressed while locked -> silence only");
+              id(silence_audio).execute();
+              return;
+            }
             // If not in menu, act as a silence button or toggle relay
             if (id(ui_mode) == 0) {
               if (id(athan_playing)) {
@@ -191,11 +233,11 @@ binary_sensor:
             // In menu: move forward
             ESP_LOGI("ui","Next pressed (menu) -> forward");
             if (id(ui_mode) == 1) {
-              id(ui_menu_index) = (id(ui_menu_index) + 1) % 9;
+              id(ui_menu_index) = (id(ui_menu_index) + 1) % 13;
               // any navigation breaks consecutive select count for Q
               id(q_select_count) = 0;
               // If navigation lands on the Update item, reset its state
-              if (id(ui_menu_index) == 4) {
+              if (id(ui_menu_index) == 5) {
                 id(update_check_state) = 0;
               }
               // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
@@ -236,6 +278,23 @@ binary_sensor:
               id(mute_index) = (id(mute_index) + 1) % 6;
             } else if (id(ui_mode) == 7) {
               // Info screen: nothing to cycle
+            } else if (id(ui_mode) == 9) {
+              // Fajr Volume submenu: decrement by 10%, wrap 10 -> 100, hear the tone at that level
+              int v = id(fajr_volume_level);
+              id(fajr_volume_level) = (v <= 10) ? 100 : v - 10;
+              ESP_LOGI("ui", "Fajr volume changed to %d%%", id(fajr_volume_level));
+              id(apply_fajr_volume).execute();
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${tone_volume_file};
+                id(dfp_play).execute();
+              }
+            } else if (id(ui_mode) == 10) {
+              // Tick Window submenu: Start, End, Done
+              id(tickwin_index) = (id(tickwin_index) + 1) % 3;
+            } else if (id(ui_mode) == 11) {
+              id(htick_start_hour) = (id(htick_start_hour) + 1) % 24;
+            } else if (id(ui_mode) == 12) {
+              id(htick_end_hour) = (id(htick_end_hour) + 1) % 24;
             }
             id(update_display).execute();
 
@@ -251,6 +310,11 @@ binary_sensor:
       then:
         - lambda: |-
             id(ui_last_activity) = millis();
+            if (id(buttons_locked)) {
+              ESP_LOGI("ui","Select pressed while locked -> silence only");
+              id(silence_audio).execute();
+              return;
+            }
             // If not in menu, enter main menu
             if (id(ui_mode) == 0) {
               if(id(athan_playing)){
@@ -273,7 +337,7 @@ binary_sensor:
             // If in menu, act as select/confirm
             ESP_LOGI("ui","Select pressed in menu index=%d", id(ui_menu_index));
             if (id(ui_mode) == 1) {
-              // main menu: 0=athan,1=athan on/off,2=htick,3=location,4=update,5=volume,6=info,7=cancel,8=Q
+              // main menu: 0=athan,1=athan on/off,2=htick,3=tick window,4=location,5=update,6=volume,7=fajr volume,8=clock,9=lock,10=info,11=cancel,12=Q
               if (id(ui_menu_index) == 0) {
                 id(ui_mode) = 2;
                 id(athan_index) = id(athan_file_index) - ${athan_file_first};
@@ -300,6 +364,14 @@ binary_sensor:
                   id(dfp_play).execute();
                 }
               } else if (id(ui_menu_index) == 3) {
+                id(ui_mode) = 10; // Tick Window submenu
+                id(tickwin_index) = 0;
+                ESP_LOGI("ui","Entered Tick Window submenu");
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_click_file};
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 4) {
                 id(ui_mode) = 4; // location menu
                 // Initialize preview index from the persisted selection so the
                 // menu opens at the last saved location. `location_index` is
@@ -308,7 +380,7 @@ binary_sensor:
                 ESP_LOGI("ui","Entered Location submenu (preview_index=%d)", id(location_index));
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
-              } else if (id(ui_menu_index) == 4) {
+              } else if (id(ui_menu_index) == 5) {
                 // Update: first press checks remote latest.json, second press confirms update
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
@@ -326,7 +398,7 @@ binary_sensor:
                   id(ui_mode) = 1; // stay in menu
                   ESP_LOGI("update", "Checking remote for latest version...");
                 }
-              } else if (id(ui_menu_index) == 5) {
+              } else if (id(ui_menu_index) == 6) {
                 // Enter volume submenu
                 id(ui_mode) = 5;
                 ESP_LOGI("ui", "Entered Volume submenu (level=%d%%)", id(volume_level));
@@ -334,20 +406,46 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_volume_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 6) {
+              } else if (id(ui_menu_index) == 7) {
+                // Enter Fajr Volume submenu (DFPlayer temporarily at the Fajr level so the tone previews it)
+                id(ui_mode) = 9;
+                ESP_LOGI("ui", "Entered Fajr Volume submenu (level=%d%%)", id(fajr_volume_level));
+                id(apply_fajr_volume).execute();
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_volume_file};
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 8) {
+                // Clock 24h/12h: toggles in place, stays in the menu
+                id(clock_12h) = !id(clock_12h);
+                ESP_LOGI("ui","Clock display -> %s", id(clock_12h) ? "12h" : "24h");
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_click_file};
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 9) {
+                // Lock Buttons: lock and go home. Unlock from the web page or by powering up holding one button.
+                id(buttons_locked) = true;
+                id(ui_mode) = 0;
+                ESP_LOGI("ui","Buttons locked from menu");
+                if (!id(athan_playing)) {
+                  id(dfp_pending_file) = ${tone_click_file};
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 10) {
                 id(ui_mode) = 7; // Info screen
                 ESP_LOGI("ui","Entered Info screen");
                 if (!id(athan_playing)) {
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 7) {
+              } else if (id(ui_menu_index) == 11) {
                 // Cancel
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 id(ui_mode) = 0;
                 ESP_LOGI("ui","Menu cancelled");
-              } else if (id(ui_menu_index) == 8) {
+              } else if (id(ui_menu_index) == 12) {
                 // Q toggle item: enabling requires 10 consecutive select presses
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
@@ -423,6 +521,29 @@ binary_sensor:
                 id(dfp_play).execute();
               }
               id(ui_mode) = 0;
+            } else if (id(ui_mode) == 9) {
+              // confirm Fajr volume, put the DFPlayer back to the main volume
+              ESP_LOGI("ui", "Fajr volume selected: %d%%", id(fajr_volume_level));
+              id(apply_volume).execute();
+              id(dfp_pending_file) = ${tone_click_file};
+              id(dfp_play).execute();
+              id(ui_mode) = 0;
+            } else if (id(ui_mode) == 10) {
+              // Tick Window submenu: Start -> edit start, End -> edit end, Done -> exit
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${tone_click_file};
+                id(dfp_play).execute();
+              }
+              if (id(tickwin_index) == 0) id(ui_mode) = 11;
+              else if (id(tickwin_index) == 1) id(ui_mode) = 12;
+              else { id(ui_mode) = 0; ESP_LOGI("ui","Tick window: %02d-%02d", id(htick_start_hour), id(htick_end_hour)); }
+            } else if (id(ui_mode) == 11 || id(ui_mode) == 12) {
+              // confirm the edited hour, back to the Tick Window submenu
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${tone_click_file};
+                id(dfp_play).execute();
+              }
+              id(ui_mode) = 10;
             }
             id(update_display).execute();
 
@@ -551,6 +672,47 @@ switch:
   # The advanced "Q" flag is deliberately NOT exposed on the web page or Home Assistant;
   # it can only be changed from the device menu (10 consecutive Select presses to enable).
 
+  # Child lock for the two physical buttons (same flag as the "Lock Buttons" menu item). While locked a
+  # button press only silences audio. Hardware unlock: power up holding exactly one button.
+  - platform: template
+    name: "Buttons Locked"
+    id: web_buttons_locked
+    icon: "mdi:lock"
+    restore_mode: DISABLED
+    lambda: return id(buttons_locked);
+    turn_on_action:
+      - lambda: |-
+          id(buttons_locked) = true;
+          id(ui_mode) = 0;
+          ESP_LOGI("web", "Buttons locked from web");
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(buttons_locked) = false;
+          ESP_LOGI("web", "Buttons unlocked from web");
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 5
+  # 12-hour clock on the OLED and in the web texts (display only; stored times stay 24 h)
+  - platform: template
+    name: "12-hour Clock"
+    id: web_clock_12h
+    icon: "mdi:clock-time-four-outline"
+    restore_mode: DISABLED
+    lambda: return id(clock_12h);
+    turn_on_action:
+      - lambda: |-
+          id(clock_12h) = true;
+          id(update_display).execute();
+    turn_off_action:
+      - lambda: |-
+          id(clock_12h) = false;
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_now
+      sorting_weight: 6
+
 # ======================================================
 # WEB PAGE / HOME ASSISTANT CONTROLS
 # Each entity below reuses the same scripts and globals the buttons use.
@@ -653,6 +815,66 @@ number:
     web_server:
       sorting_group_id: grp_athan
       sorting_weight: 4
+  - platform: template
+    name: "Fajr Volume"
+    id: web_fajr_volume
+    icon: "mdi:volume-medium"
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 10
+    mode: slider
+    set_action:
+      - lambda: |-
+          int v = (int) (x + 0.5f);
+          v = ((v + 5) / 10) * 10;
+          if (v < 0) v = 0; if (v > 100) v = 100;
+          id(fajr_volume_level) = v;
+          id(web_fajr_volume).publish_state(v);
+          ESP_LOGI("web", "Fajr volume set to %d%%", v);
+          id(fajr_volume_feedback).execute();
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 4.5
+  # Hourly tick active window: the tick plays at HH:00 only for hours in [start, end). Start == End = all day.
+  - platform: template
+    name: "Tick Window Start"
+    id: web_htick_start
+    icon: "mdi:clock-start"
+    unit_of_measurement: "h"
+    min_value: 0
+    max_value: 23
+    step: 1
+    mode: slider
+    set_action:
+      - lambda: |-
+          int v = (int) (x + 0.5f);
+          if (v < 0) v = 0; if (v > 23) v = 23;
+          id(htick_start_hour) = v;
+          id(web_htick_start).publish_state(v);
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 3.2
+  - platform: template
+    name: "Tick Window End"
+    id: web_htick_end
+    icon: "mdi:clock-end"
+    unit_of_measurement: "h"
+    min_value: 0
+    max_value: 23
+    step: 1
+    mode: slider
+    set_action:
+      - lambda: |-
+          int v = (int) (x + 0.5f);
+          if (v < 0) v = 0; if (v > 23) v = 23;
+          id(htick_end_hour) = v;
+          id(web_htick_end).publish_state(v);
+          id(update_display).execute();
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 3.4
 
 button:
   - platform: template
@@ -750,6 +972,14 @@ text_sensor:
       sorting_group_id: grp_now
       sorting_weight: 3
   - platform: template
+    name: "Tick Window"
+    id: web_htick_window
+    icon: "mdi:bell-outline"
+    update_interval: never
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 3.6
+  - platform: template
     name: "Today's Times"
     id: web_today_times
     icon: "mdi:calendar-today"
@@ -800,10 +1030,13 @@ display:
   - platform: ssd1306_i2c
     id: oled
     model: "SSD1306 128x64"
-    reset_pin: GPIO16
+    reset_pin: ${oled_reset_pin}
     address: 0x3C # if doesnt work change to 0x3D, its usually either 0x3C or 0x3D
-    # flip_y: false # default is true, to make text correct, need to flip both x and y or neither
-    # flip_x: false # default is true
+    # Orientation and contrast come from the substitutions at the top of the file (shared with the
+    # hot-plug re-init sequence). To rotate 180 degrees flip both x and y.
+    flip_x: ${oled_flip_x}
+    flip_y: ${oled_flip_y}
+    contrast: ${oled_contrast}
 
 # NOTE: on the ESP8266 every font glyph costs ~32 bytes of RAM (the glyph table lives in DRAM, only the
 # bitmaps are in flash). The default glyph set is ~100 glyphs = 3.2 KB per font, so both fonts list
@@ -817,6 +1050,10 @@ font:
     id: font2
     size: 14
     glyphs: " .0123456789acfhilnotw"   # IP address, "athan.local", "no wifi"
+  - file: "gfonts://Roboto"
+    id: font3
+    size: 10
+    glyphs: "AMP"                      # the small AM/PM tag after the time in 12-hour mode
 
 time:
   - platform: sntp
@@ -848,7 +1085,11 @@ time:
         then:
           - script.execute: refresh_prayer_times_if_needed  # this runs before the second interval below. so if prayer time is at fixed hour, then this runs first.
           - lambda: |-
-              if (!id(athan_playing) && id(htick_file_index) > 0) {
+              // Hourly tick only inside the active window [start, end); start == end means all day.
+              int h = id(sntp_time).now().hour;
+              int s = id(htick_start_hour), e = id(htick_end_hour);
+              bool in_window = (s == e) || (s < e ? (h >= s && h < e) : (h >= s || h < e));
+              if (!id(athan_playing) && id(htick_file_index) > 0 && in_window) {
                   id(dfp_pending_file) = id(htick_file_index);
                   id(dfp_play).execute();
               }
@@ -897,6 +1138,41 @@ globals:
     restore_value: true
 
   - id: mute_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
+  # Physical buttons locked (child-proofing). Persisted. Unlock: web switch, or power up holding ONE button.
+  - id: buttons_locked
+    type: bool
+    initial_value: "false"
+    restore_value: true
+
+  # Volume (0-100 %) used for the Fajr athan and the Quyam audio. -1 = not set yet: copied from
+  # volume_level on the first boot after the update, then independent.
+  - id: fajr_volume_level
+    type: int
+    initial_value: "-1"
+    restore_value: true
+
+  # Hourly tick plays only when the hour is inside [start, end). start == end means all day (default).
+  - id: htick_start_hour
+    type: int
+    initial_value: "0"
+    restore_value: true
+  - id: htick_end_hour
+    type: int
+    initial_value: "0"
+    restore_value: true
+
+  # 12-hour clock on the OLED and the web texts. Rendering only; stored times stay 24 h.
+  - id: clock_12h
+    type: bool
+    initial_value: "false"
+    restore_value: true
+
+  # Tick Window submenu cursor: 0 Start, 1 End, 2 Done (not persisted)
+  - id: tickwin_index
     type: int
     initial_value: "0"
     restore_value: false
@@ -1065,6 +1341,7 @@ script:
             ESP_LOGI("audio", "Athan silenced");
           }
           id(athan_playing) = false;
+          if (id(ui_mode) != 9) id(apply_volume).execute();
           id(update_display).execute();
 
   # Map volume_level (0-100 %) to the DFPlayer range (0-30) and apply it. Used at boot, by the Volume menu and by the web slider.
@@ -1079,6 +1356,38 @@ script:
           if (vol < 0) vol = 0; if (vol > 30) vol = 30;
           id(dfp).set_volume(vol);
           ESP_LOGI("audio", "DFPlayer volume set to %d (from %d%%)", vol, v);
+
+  # Same mapping as apply_volume but for fajr_volume_level: used for the Fajr athan and the Quyam audio.
+  - id: apply_fajr_volume
+    mode: restart
+    then:
+      - lambda: |-
+          int v = id(fajr_volume_level);
+          if (v < 0) v = id(volume_level);
+          if (v > 100) v = 100;
+          int vol = (v * 30 + 50) / 100;
+          if (vol < 0) vol = 0; if (vol > 30) vol = 30;
+          id(dfp).set_volume(vol);
+          ESP_LOGI("audio", "DFPlayer volume set to %d (Fajr level %d%%)", vol, v);
+
+  # Web slider feedback: play the volume tone at the Fajr level, then go back to the main volume.
+  - id: fajr_volume_feedback
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(athan_playing);'
+          then:
+            - script.execute: apply_fajr_volume
+            - lambda: |-
+                id(dfp_pending_file) = ${tone_volume_file};
+                id(dfp_play).execute();
+            - delay: 1500ms
+            - if:
+                condition:
+                  lambda: 'return !id(athan_playing) && id(ui_mode) != 9;'
+                then:
+                  - script.execute: apply_volume
 
   # Web-page preview: play dfp_pending_file for 20 s, then stop (unless a real athan started meanwhile).
   - id: web_preview
@@ -1108,6 +1417,13 @@ script:
           id(dfp).stop();
           id(dfp_play).stop();
       - delay: 250ms
+      - if:
+          condition:
+            lambda: 'return id(current_athan_prayer_index) == 0;'
+          then:
+            - script.execute: apply_fajr_volume
+          else:
+            - script.execute: apply_volume
       - lambda: |-
           int choice = id(athan_file_index) - (${athan_file_first} - 1);   // 1..10
           int f = (id(current_athan_prayer_index) == 0)
@@ -1120,6 +1436,7 @@ script:
       - light.turn_off: builtin_led
       - lambda: |-
           id(athan_playing) = false;
+      - script.execute: apply_volume
 
   - id: perform_update
     mode: single
@@ -1257,11 +1574,17 @@ script:
           then:
             - logger.log: "Quyam starting (Q flag is ON)"
             - switch.turn_on: external_relay
+            - script.execute: apply_fajr_volume
             - lambda: |-
                 id(dfp_pending_file) = random(${quyam_file_first}, ${quyam_file_last} + 1);
                 id(dfp_play).execute();
             - delay: 15min
             - switch.turn_off: external_relay
+            - if:
+                condition:
+                  lambda: 'return !id(athan_playing);'
+                then:
+                  - script.execute: apply_volume
             
           else:
             - logger.log: "Q flag is OFF — skipping Quyam actions"
@@ -1643,8 +1966,32 @@ script:
             auto loc = id(web_location_select).at(id(selected_location_index));
             if (loc.has_value() && id(web_location_select).state != loc.value()) id(web_location_select).publish_state(loc.value());
           }
-          // Volume
+          // Volume, Fajr volume, tick window hours
           if (!id(web_volume).has_state() || (int) id(web_volume).state != id(volume_level)) id(web_volume).publish_state(id(volume_level));
+          if (id(fajr_volume_level) >= 0 && (!id(web_fajr_volume).has_state() || (int) id(web_fajr_volume).state != id(fajr_volume_level))) id(web_fajr_volume).publish_state(id(fajr_volume_level));
+          if (!id(web_htick_start).has_state() || (int) id(web_htick_start).state != id(htick_start_hour)) id(web_htick_start).publish_state(id(htick_start_hour));
+          if (!id(web_htick_end).has_state() || (int) id(web_htick_end).state != id(htick_end_hour)) id(web_htick_end).publish_state(id(htick_end_hour));
+          // 12 h / 24 h text formatter (display only; stored times stay 24 h)
+          auto fmt_time = [&](char *out, size_t n, int h, int m) {
+            if (id(clock_12h)) {
+              int h12 = h % 12; if (h12 == 0) h12 = 12;
+              snprintf_P(out, n, PSTR("%d:%02d %s"), h12, m, (h < 12) ? "AM" : "PM");
+            } else {
+              snprintf_P(out, n, PSTR("%02d:%02d"), h, m);
+            }
+          };
+          char t1[12], t2[12];
+          // Tick window text
+          {
+            int s = id(htick_start_hour), e = id(htick_end_hour);
+            if (s == e) {
+              snprintf_P(buf, sizeof(buf), PSTR("all day"));
+            } else {
+              fmt_time(t1, sizeof(t1), s, 0); fmt_time(t2, sizeof(t2), e, 0);
+              snprintf_P(buf, sizeof(buf), PSTR("%s to %s (%d h)"), t1, t2, (e - s + 24) % 24);
+            }
+            if (id(web_htick_window).state != buf) id(web_htick_window).publish_state(buf);
+          }
           // Next prayer and today's times
           static const char* prayer_names[7] = {"Fajr", "Sunrise", "Doha", "Dhuhr", "Asr", "Maghrib", "Isha"};
           auto now = id(sntp_time).now();
@@ -1653,18 +2000,19 @@ script:
             int total = id(next_prayer_hour) * 60 + id(next_prayer_minute) - (now.hour * 60 + now.minute);
             if (total < 0) total += 24 * 60;
             bool muted = (npi != 1 && npi != 2) && !id(athan_enabled)[npi];
-            snprintf_P(buf, sizeof(buf), PSTR("%s %02d:%02d (in %dh %02dm)%s"), prayer_names[npi],
-                       id(next_prayer_hour), id(next_prayer_minute), total / 60, total % 60, muted ? " [athan off]" : "");
+            fmt_time(t1, sizeof(t1), id(next_prayer_hour), id(next_prayer_minute));
+            snprintf_P(buf, sizeof(buf), PSTR("%s %s (in %dh %02dm)%s"), prayer_names[npi],
+                       t1, total / 60, total % 60, muted ? " [athan off]" : "");
           } else {
             snprintf_P(buf, sizeof(buf), PSTR("waiting for time and prayer data"));
           }
           if (id(web_next_prayer).state != buf) id(web_next_prayer).publish_state(buf);
           if (id(prayer_times_refreshed_at_least_once)) {
-            snprintf_P(buf, sizeof(buf), PSTR("Fajr %02d:%02d, Sunrise %02d:%02d, Doha %02d:%02d, Dhuhr %02d:%02d, Asr %02d:%02d, Maghrib %02d:%02d, Isha %02d:%02d"),
-                       id(prayer_hours)[0], id(prayer_minutes)[0], id(prayer_hours)[1], id(prayer_minutes)[1],
-                       id(prayer_hours)[2], id(prayer_minutes)[2], id(prayer_hours)[3], id(prayer_minutes)[3],
-                       id(prayer_hours)[4], id(prayer_minutes)[4], id(prayer_hours)[5], id(prayer_minutes)[5],
-                       id(prayer_hours)[6], id(prayer_minutes)[6]);
+            int pos = 0;
+            for (int i = 0; i < 7 && pos < (int) sizeof(buf) - 1; i++) {
+              fmt_time(t1, sizeof(t1), id(prayer_hours)[i], id(prayer_minutes)[i]);
+              pos += snprintf_P(buf + pos, sizeof(buf) - pos, PSTR("%s%s %s"), (i == 0) ? "" : ", ", prayer_names[i], t1);
+            }
           } else {
             snprintf_P(buf, sizeof(buf), PSTR("not loaded yet"));
           }
@@ -1714,6 +2062,7 @@ script:
               unsigned long diff = millis() - last;
               if (diff >= 60000) {
                 ESP_LOGI("ui", "Menu timed out after %lu ms, returning to normal", diff);
+                if (id(ui_mode) == 9) id(apply_volume).execute();
                 id(ui_mode) = 0;
                 id(dfp).stop();
                 id(dfp_play).stop();
@@ -1730,6 +2079,56 @@ script:
           // Month abbreviations for compact date display (Jan, Feb, ...)
           static const char* months[12] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
 
+          // ---- rendering helpers. 12h/24h is display-only: stored times stay 24 h everywhere. ----
+          // Width of a time as draw_time() would print it (digits in font1, small AM/PM in font3 in 12 h mode).
+          auto time_width = [&](int h, int m) -> int {
+            char b[8]; int x1, y1, w = 0, w2 = 0, hh;
+            if (id(clock_12h)) {
+              int h12 = h % 12; if (h12 == 0) h12 = 12;
+              snprintf(b, sizeof(b), "%d:%02d", h12, m);
+              id(oled).get_text_bounds(0, 0, b, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &hh);
+              id(oled).get_text_bounds(0, 0, (h < 12) ? "AM" : "PM", id(font3), display::TextAlign::TOP_LEFT, &x1, &y1, &w2, &hh);
+              return w + 1 + w2;
+            }
+            snprintf(b, sizeof(b), "%02d:%02d", h, m);
+            id(oled).get_text_bounds(0, 0, b, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &hh);
+            return w;
+          };
+          // Prints a time with its top-left at (x, y); returns the x just after it.
+          auto draw_time = [&](int x, int y, int h, int m) -> int {
+            char b[8]; int x1, y1, w, hh;
+            if (id(clock_12h)) {
+              int h12 = h % 12; if (h12 == 0) h12 = 12;
+              snprintf(b, sizeof(b), "%d:%02d", h12, m);
+              id(oled).print(x, y, id(font1), b);
+              id(oled).get_text_bounds(x, y, b, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &hh);
+              x += w + 1;
+              const char* ap = (h < 12) ? "AM" : "PM";
+              id(oled).print(x, y + 9, id(font3), ap);   // font1 baseline 19, font3 baseline 10: +9 aligns them
+              id(oled).get_text_bounds(x, y, ap, id(font3), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &hh);
+              return x + w;
+            }
+            snprintf(b, sizeof(b), "%02d:%02d", h, m);
+            id(oled).print(x, y, id(font1), b);
+            id(oled).get_text_bounds(x, y, b, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &hh);
+            return x + w;
+          };
+          // Small padlock (buttons locked), top-left at (x, y), 7 px wide, 9 px tall. Drawn, not a glyph.
+          auto draw_lock = [&](int x, int y) {
+            id(oled).circle(x + 3, y + 2, 2);
+            id(oled).filled_rectangle(x, y + 4, 7, 5);
+          };
+          // Small speaker icon, top-left at (x, y), 19 px wide, 16 px tall. Drawn, not a glyph: the OLED
+          // font has no emoji (the old Volume line with an emoji rendered as a rectangle).
+          auto draw_speaker = [&](int x, int y) {
+            id(oled).filled_rectangle(x, y + 5, 4, 6);
+            id(oled).filled_triangle(x + 4, y + 5, x + 9, y + 1, x + 9, y + 15);
+            id(oled).filled_triangle(x + 4, y + 10, x + 9, y + 15, x + 4, y + 5);
+            id(oled).line(x + 12, y + 5, x + 12, y + 10);
+            id(oled).line(x + 15, y + 3, x + 15, y + 12);
+            id(oled).line(x + 18, y + 1, x + 18, y + 14);
+          };
+
           int total_mins_to_next = id(next_prayer_hour)*60 + id(next_prayer_minute) - (hour*60 + minute);
           if (total_mins_to_next < 0) total_mins_to_next += 24*60;
           int hrs = total_mins_to_next / 60;
@@ -1743,16 +2142,18 @@ script:
           if (id(ui_mode) != 0) {
             if (id(ui_mode) == 1) {
               // Main menu: first line fixed, second line shows current item
-              static const char* menu_items[9] = {"Athan","Athan On/Off","Hourly Tick","Location","Update","Volume","Info","Cancel","Q"};
+              static const char* menu_items[13] = {"Athan","Athan On/Off","Hourly Tick","Tick Window","Location","Update","Volume","Fajr Volume","Clock","Lock Buttons","Info","Cancel","Q"};
               id(oled).print(0, 0, id(font1), "Menu:");
-              if (id(ui_menu_index) == 8) {
+              if (id(ui_menu_index) == 12) {
                 snprintf(line2, sizeof(line2), "Q: %s", (id(q_flag) ? "ON" : "OFF"));
+              } else if (id(ui_menu_index) == 8) {
+                snprintf(line2, sizeof(line2), "Clock: %s", (id(clock_12h) ? "12h" : "24h"));
               } else {
                 snprintf(line2, sizeof(line2), "%s", menu_items[id(ui_menu_index)]);
               }
               id(oled).print(0, 22, id(font1), line2);
               // When Update item selected, show version info on third row
-              if (id(ui_menu_index) == 4) {
+              if (id(ui_menu_index) == 5) {
                 if (id(update_check_state) == 0) {
                   // Not checked yet: show current version only
                   snprintf(line3, sizeof(line3), "V%d", ${current_version});
@@ -1797,10 +2198,42 @@ script:
               id(oled).print(0, 22, id(font1), line2);
             } else if (id(ui_mode) == 5) {
               // Volume submenu
-              snprintf(line1, sizeof(line1), "Volume 🔈");
+              id(oled).print(0, 0, id(font1), "Volume");
+              draw_speaker(76, 2);
               snprintf(line2, sizeof(line2), "%d%%", id(volume_level));
-              id(oled).print(0, 0, id(font1), line1);
               id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 9) {
+              // Fajr Volume submenu (used for the Fajr athan and the Quyam audio). The header is too wide
+              // for the icon (108 + 25 px > 128), so the speaker sits after the percentage on line 2.
+              id(oled).print(0, 0, id(font1), "Fajr Volume");
+              snprintf(line2, sizeof(line2), "%d%%", id(fajr_volume_level));
+              id(oled).print(0, 22, id(font1), line2);
+              {
+                int x1, y1, w, h2;
+                id(oled).get_text_bounds(0, 22, line2, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h2);
+                draw_speaker(w + 8, 24);
+              }
+            } else if (id(ui_mode) == 10 || id(ui_mode) == 11 || id(ui_mode) == 12) {
+              // Tick Window: line 2 = selected entry (">" while editing), line 3 = resulting window width
+              id(oled).print(0, 0, id(font1), "Tick Window");
+              int s = id(htick_start_hour), e = id(htick_end_hour);
+              int x1, y1, w, h2;
+              if (id(ui_mode) == 11 || (id(ui_mode) == 10 && id(tickwin_index) == 0)) {
+                const char* lbl = (id(ui_mode) == 11) ? "Start>" : "Start:";
+                id(oled).print(0, 22, id(font1), lbl);
+                id(oled).get_text_bounds(0, 22, lbl, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h2);
+                draw_time(w + 5, 22, s, 0);
+              } else if (id(ui_mode) == 12 || (id(ui_mode) == 10 && id(tickwin_index) == 1)) {
+                const char* lbl = (id(ui_mode) == 12) ? "End>" : "End:";
+                id(oled).print(0, 22, id(font1), lbl);
+                id(oled).get_text_bounds(0, 22, lbl, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h2);
+                draw_time(w + 5, 22, e, 0);
+              } else {
+                id(oled).print(0, 22, id(font1), "Done");
+              }
+              int width = (s == e) ? 24 : ((e - s + 24) % 24);
+              snprintf(line3, sizeof(line3), "Window: %dh", width);
+              id(oled).print(0, 44, id(font1), line3);
             } else if (id(ui_mode) == 6) {
               // Athan On/Off submenu
               static const char* mute_names[6] = {"Fajr", "Dhuhr", "Asr", "Maghrib", "Isha", "Done"};
@@ -1831,17 +2264,42 @@ script:
             id(oled).print(0, 0, id(font1), "Athan Time:");
             snprintf(line1, sizeof(line1), "%s prayer", prayer_names[id(current_athan_prayer_index)]);
             id(oled).print(0, 22, id(font1), line1);
-            // Show time and compact date (e.g. "12:34 26 Nov") on the same line
-            snprintf(line3, sizeof(line3), "%02d:%02d  %02d%s", hour, minute, now.day_of_month, months[now.month - 1]);
-            id(oled).print(0, 44, id(font1), line3);
+            // Time (+ small AM/PM in 12 h mode) and compact date; the gap shrinks if needed to fit 128 px
+            {
+              int x1, y1, wd, hd;
+              snprintf(line3, sizeof(line3), "%02d%s", now.day_of_month, months[now.month - 1]);
+              id(oled).get_text_bounds(0, 44, line3, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &wd, &hd);
+              int gap = 128 - time_width(hour, minute) - wd;
+              if (gap > 10) gap = 10; if (gap < 2) gap = 2;
+              int x = draw_time(0, 44, hour, minute);
+              id(oled).print(x + gap, 44, id(font1), line3);
+            }
           } else {
-            // Show time and compact date (e.g. "12:34 26 Nov") on the top line
-            snprintf(line1, sizeof(line1), "%02d:%02d  %02d%s", hour, minute, now.day_of_month, months[now.month - 1]);
-            snprintf(line2, sizeof(line2), "%s %02d:%02d", next_prayer_name, id(next_prayer_hour), id(next_prayer_minute));
+            // Line 1: time (+ small AM/PM in 12 h mode) and compact date; the gap shrinks if needed to fit 128 px
+            {
+              int x1, y1, wd, hd;
+              snprintf(line1, sizeof(line1), "%02d%s", now.day_of_month, months[now.month - 1]);
+              id(oled).get_text_bounds(0, 0, line1, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &wd, &hd);
+              int gap = 128 - time_width(hour, minute) - wd;
+              if (gap > 10) gap = 10; if (gap < 2) gap = 2;
+              int x = draw_time(0, 0, hour, minute);
+              id(oled).print(x + gap, 0, id(font1), line1);
+            }
+            // Line 2: next prayer name and its time (same gap rule)
+            {
+              int x1, y1, wn, hn;
+              id(oled).get_text_bounds(0, 22, next_prayer_name, id(font1), display::TextAlign::TOP_LEFT, &x1, &y1, &wn, &hn);
+              int gap = 128 - wn - time_width(id(next_prayer_hour), id(next_prayer_minute));
+              if (gap > 5) gap = 5; if (gap < 1) gap = 1;
+              id(oled).print(0, 22, id(font1), next_prayer_name);
+              draw_time(wn + gap, 22, id(next_prayer_hour), id(next_prayer_minute));
+            }
+            // Line 3: time remaining (a duration, so never 12 h formatted) + padlock when the buttons are locked
             snprintf(line3, sizeof(line3), "Rem %02d:%02d", hrs, mins);
-            id(oled).print(0, 0, id(font1), line1);
-            id(oled).print(0, 22, id(font1), line2);
             id(oled).print(0, 44, id(font1), line3);
+            // Padlock in the bottom-right corner (last row 63, last column 127); when the Wi-Fi-down mark
+            // occupies that corner the padlock moves just left of it so both stay visible.
+            if (id(buttons_locked)) draw_lock(WiFi.isConnected() ? 121 : 96, 55);
             // Next prayer has its athan turned OFF: strike through the last two letters of its name only
             {
               int npi = id(next_prayer_index);
@@ -1926,41 +2384,51 @@ interval:
     then:
       - script.execute: sync_web_state
   # OLED hot-plug watchdog. The display is optional: if it is missing or dead at boot, the I2C probe in its
-  # setup() marks it failed and everything else keeps running (buttons, web page, athan). Every 10 s this
-  # sends a zero-length I2C write (an ACK probe, ~0.1 ms). A display that appears later is initialised
-  # on the spot. A display that was working, disappeared and came back has lost power and needs its init
-  # sequence again; ESPHome re-allocates the 1 KB frame buffer on every setup() and never frees the old
-  # one, so re-inits are capped per boot (press Restart beyond that).
+  # setup() marks it failed and everything else keeps running. Every 10 s this
+  # sends a zero-length I2C write (an ACK probe).
+  #  - Never initialised (failed at boot) and now answering: run ESPHome's setup. Its probe runs before
+  #    the frame buffer is allocated, so a miss simply retries next tick and nothing leaks.
+  #  - Was working, went away, came back: re-run ESPHome's setup() as well.
+  #    The module must answer two probes in a row first (a freshly plugged module can ACK before it is
+  #    fully awake). Each such setup() allocates a new 1 KB frame buffer and ESPHome never frees the old
+  #    one, so only ONE in-place re-init is allowed per boot. After that a replugged display is ignored
+  #    (logged) until the user restarts the device. The device itself NEVER restarts
+  #    because of the display: the athan keeps working on the speaker with a dark screen.
   - interval: 10s
     then:
       - lambda: |-
           static bool oled_lost = false;
-          static uint8_t oled_setups = 0;
-          const uint8_t max_setups = 4;
+          static uint8_t oled_back_ticks = 0;
+          static uint8_t oled_leaks = 0;          // setup() calls made while an old frame buffer already existed
+          const uint8_t max_leaks = 1;            // one in-place re-init (1 KB) per boot, then leave it to the user
           bool ack = (id(oled).write(nullptr, 0) == i2c::ERROR_OK);
           if (id(oled).is_failed()) {
-            if (ack && oled_setups < max_setups) {
-              oled_setups++;
-              ESP_LOGI("oled", "Display detected, initialising (%d/%d)", (int) oled_setups, (int) max_setups);
+            if (ack) {
+              ESP_LOGI("oled", "Display detected, initialising");
               id(oled).reset_to_construction_state();
               id(oled).call();
-              id(update_display).execute();
+              if (!id(oled).is_failed()) id(update_display).execute();
             }
             return;
           }
           if (!ack) {
             if (!oled_lost) ESP_LOGW("oled", "Display stopped responding");
             oled_lost = true;
+            oled_back_ticks = 0;
             return;
           }
-          if (oled_lost) {
-            oled_lost = false;
-            if (oled_setups < max_setups) {
-              oled_setups++;
-              ESP_LOGI("oled", "Display is back, re-initialising (%d/%d)", (int) oled_setups, (int) max_setups);
-              id(oled).setup();
-              id(update_display).execute();
-            } else {
-              ESP_LOGW("oled", "Display is back but the re-init limit was reached; press Restart to use it");
-            }
+          if (!oled_lost) return;
+          if (++oled_back_ticks < 2) return;   // wait for a second consecutive ACK so the module has settled
+          oled_lost = false;
+          if (oled_leaks >= max_leaks) {
+            ESP_LOGW("oled", "Display is back again but the one in-place re-init per boot is used up; restart the device to use the screen (athan keeps working)");
+            return;
+          }
+          oled_leaks++;
+          ESP_LOGI("oled", "Display is back, re-running its setup (last in-place re-init for this boot)");
+          id(oled).setup();
+          if (id(oled).is_failed()) {
+            ESP_LOGW("oled", "Setup probe missed, will retry on the next tick");
+          } else {
+            id(update_display).execute();
           }
