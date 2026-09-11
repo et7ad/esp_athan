@@ -394,14 +394,18 @@ The DFPlayer uses a simple “file number” scheme based on the order files wer
 1. **Format the card as FAT (FAT16/FAT32)**.
 2. Make sure there are **no folders** – put all `.mp3` (or supported) files directly in the root of the card.
 3. Copy the audio files in the exact order you want them to be numbered (first copied file becomes file `1`, second becomes file `2`, and so on).
-4. macOS may create hidden files (`.DS_Store`, `._*`, etc.). To clean them up, run:
+4. Use the copy script (`scripts/sd_card_cpy_script.sh`, set `SRC`/`DEST` first). Since V6 it copies **without extended attributes** (`cp -X`), so macOS never creates the hidden `._name.mp3` sidecar files, and it cleans up and lists the card at the end. Check its output: 48 `.mp3` files and no `._` files. If you copied by hand instead, clean up with:
 
 	 ```bash
 	 cd /Volumes/YOUR_SD_CARD_NAME
-	 rm -rf .DS_Store .Trashes ._*
+	 dot_clean -m . ; rm -rf .DS_Store .Trashes ._*
 	 ```
 
-5. Eject the card safely, insert it into the DFPlayer, and power‑cycle the device.
+	 The script also leaves two tiny markers on the card on purpose: an empty `.metadata_never_index` file and a `.fseventsd` folder containing only `no_log`. They tell macOS never to index or log on this card, so mounting it on a Mac later creates nothing new; they have no audio extension, so the DFPlayer ignores them. It then deletes everything else macOS adds (repeating if macOS re-creates something), verifies, and **ejects the card itself**.
+
+	 Why the `._` sidecars matter: the DFPlayer counts `._F10.mp3` as a track, and FAT hands a newly created file the **first free directory slot**, so a sidecar that macOS re-creates after your cleanup (Finder or Spotlight touching a file) can land between two real files and shift every track number after it. Do not open the card in Finder after copying; eject it right away.
+
+5. The script has already ejected the card; insert it into the DFPlayer and power‑cycle the device. Quick check on the device: **Athan audio** in the menu shows `File: N` while previewing; if the wrong recording plays for a number, the card has an extra file.
 
 ### 3.2 File layout expected by the firmware
 
