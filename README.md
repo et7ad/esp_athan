@@ -38,7 +38,7 @@ For more detail:
 
 - **DFPlayer loops many clips:** Some non-original DFPlayer modules occasionally mis-handle UART commands and start playing several files in rapid succession. This usually happens only on certain boots; if the device boots cleanly, it keeps working fine. Power-cycle the device (unplug then plug back in) to clear it. Even with the clone modules, this is a rare occurrence.
 - **Display freezes or shows artifacts:** Cheaper OLED displays replicas can rarely lock up, go blank, or show artifacts. Restarting the device restores the screen and normal operation.
-- **Buttons do nothing:** they are probably locked (a small padlock shows at the bottom right of the screen). Unlock from the web page (**Buttons Locked** off) or power up while holding one button, see 1.4.10.
+- **Buttons do nothing:** they are probably locked (a small padlock shows at the bottom right of the screen). Unlock from the web page (**Buttons Locked** off) or power up while holding one button, see 1.4.11.
 - **No display, or display plugged in later (firmware V6+):** the screen is optional. Without it the device still boots, connects, runs the athan and can be set up from the web page (section 1.6). Plug the display in at any time and it is detected and initialised within about 10 seconds (up to 20 seconds when it was unplugged while running). Unplugging and plugging it back while running is handled once; after a second replug the screen stays dark until you power-cycle the device (or press **Restart** on the web page). The device never restarts on its own because of the display: the athan keeps working on the speaker in the meantime. Re-initialising the screen in place costs memory the ESP8266 cannot get back, which is why it is limited to once.
 
 ---
@@ -124,19 +124,20 @@ Everything in this section (and a **Stop Audio** button) is also available from 
 
 The main menu has these entries, cycled with **Next** and chosen with **Select**:
 
-1. **Athan audio** – preview and choose which Athan recording is used.
-2. **Athan On/Off** – turn the athan on or off per prayer (Fajr, Dhuhr, Asr, Maghrib, Isha). All ON by default.
-3. **Hourly tick** – optional short sound at the top of each hour. The first choice in the list is “None” to disable it.
-4. **Tick Window** – the hours of the day during which the hourly tick is allowed to play. Default: all day.
-5. **Location** – choose which mosque/location profile the device should use.
-6. **Update firmware** – check if a newer firmware version is available and, if so, apply it over the air.
-7. **Volume** – change volume in 10% steps.
-8. **Fajr Volume** – a separate volume used only for the Fajr athan (and the audio the advanced `Q` option plays before Fajr).
-9. **Clock: 24h / 12h** – pressing Select flips the clock display between 24-hour and 12-hour (AM/PM). Nothing else changes.
-10. **Lock Buttons** – locks the two physical buttons (child-proofing). See 1.4.10 for how to unlock.
-11. **Info** – firmware version, the device’s IP address and its `athan.local` name.
-12. **Cancel** – go back to the main screen.
-13. **(Optional) Q:** – an internal/advanced setting. It is **false/off by default** and you normally do **not** need to change it. If you happen to turn it **On** and then notice the device behaving in a way you did not expect, simply switch it back **Off** from this menu and things will return to normal.
+1. **Athan audio** – preview and choose which Athan recording is used for Dhuhr, Asr, Maghrib and Isha.
+2. **Fajr Athan** – preview and choose which of the Fajr‑wording recordings is used at Fajr (independent of the regular choice).
+3. **Athan On/Off** – turn the athan on or off per prayer (Fajr, Dhuhr, Asr, Maghrib, Isha). All ON by default.
+4. **Hourly tick** – optional short sound at the top of each hour. The first choice in the list is “None” to disable it.
+5. **Tick Window** – the hours of the day during which the hourly tick is allowed to play. Default: all day.
+6. **Location** – choose which mosque/location profile the device should use.
+7. **Update firmware** – check if a newer firmware version is available and, if so, apply it over the air.
+8. **Volume** – change volume in 10% steps.
+9. **Fajr Volume** – a separate volume used only for the Fajr athan (and the audio the advanced `Q` option plays before Fajr).
+10. **Clock: 24h / 12h** – pressing Select flips the clock display between 24-hour and 12-hour (AM/PM). Nothing else changes.
+11. **Lock Buttons** – locks the two physical buttons (child-proofing). See 1.4.11 for how to unlock.
+12. **Info** – firmware version, the device’s IP address and its `athan.local` name.
+13. **Cancel** – go back to the main screen.
+14. **(Optional) Q:** – an internal/advanced setting. It is **false/off by default** and you normally do **not** need to change it. If you happen to turn it **On** and then notice the device behaving in a way you did not expect, simply switch it back **Off** from this menu and things will return to normal.
 
 #### 1.4.1 Choosing Athan audio
 
@@ -146,9 +147,17 @@ The main menu has these entries, cycled with **Next** and chosen with **Select**
 
 The firmware expects up to 10 Athan recordings on the DFPlayer card, numbered in the order they were copied (see SD‑card section below).
 
-Since firmware V6 every Athan choice has **two recordings** on the card: the regular one and a Fajr version with the Fajr wording. The device picks the Fajr version automatically at Fajr time. The preview in this menu plays the regular version; the web page has a **Preview Fajr Version** button.
+Since firmware V6 the card holds **two sets of recordings**: ten regular ones (`A1`–`A10`) and ten with the Fajr wording (`F1`–`F10`). This menu picks the regular one; the next menu picks the Fajr one.
 
-#### 1.4.2 Athan On/Off per prayer
+#### 1.4.2 Fajr Athan
+
+- Open **Fajr Athan** from the menu.
+- Use **Next** to preview the Fajr recordings (`F1`–`F10`). They play at the **Fajr volume** (1.4.9), so you hear exactly what Fajr will sound like.
+- Press **Select** to store the previewed recording as the one used at Fajr.
+
+The Fajr choice is independent of the regular choice. On the first start after updating it is set to the same number as the regular athan, so nothing changes until you pick something else. The web page has the same choice (**Fajr Athan Audio**), which also previews the recording when changed.
+
+#### 1.4.3 Athan On/Off per prayer
 
 - Open **Athan On/Off** from the menu.
 - Use **Next** to move through Fajr, Dhuhr, Asr, Maghrib, Isha and Done.
@@ -157,7 +166,7 @@ Since firmware V6 every Athan choice has **two recordings** on the card: the reg
 
 All five are ON by default and the setting survives reboots. A prayer that is OFF still shows on the normal screen and in the countdown; only the athan (and the LED) stay quiet. As a reminder, the last two letters of that prayer’s name are struck through on the normal screen. Sunrise and Doha never call the athan, so they are not in this list.
 
-#### 1.4.3 Hourly tick
+#### 1.4.4 Hourly tick
 
 - Open **Hourly tick** from the menu.
 - Use **Next** to cycle through “None” and up to 10 different short sounds.
@@ -165,14 +174,14 @@ All five are ON by default and the setting survives reboots. A prayer that is OF
 
 If you choose a sound, it will play once at the start of each hour (when the device is not already playing Athan).
 
-#### 1.4.4 Tick Window
+#### 1.4.5 Tick Window
 
 - Open **Tick Window** from the menu. **Next** moves between **Start**, **End** and **Done**; the third line always shows the resulting window length, for example `Window: 15h`.
 - Press **Select** on **Start** (or **End**): the line changes to `Start>` and **Next** now steps the hour from 0 to 23. Press **Select** to confirm and go back to the list.
 - The tick plays at the top of an hour only if that hour is inside the window, from the start hour up to but not including the end hour. Windows may cross midnight (for example 22 to 6). Start equal to End means all day, which is the default.
 - Select **Done** to leave.
 
-#### 1.4.5 Location
+#### 1.4.6 Location
 
 - Open **Location** from the menu.
 - Use **Next** to move through the list of locations.
@@ -180,7 +189,7 @@ If you choose a sound, it will play once at the start of each hour (when the dev
 
 The list currently has 15 slots; some are already mapped to real mosques and others are placeholders (see “Mosques and JSON files” below).
 
-#### 1.4.6 Update firmware
+#### 1.4.7 Update firmware
 
 - Open **Update firmware** from the menu.
 - First press of **Select** checks a small `latest.json` file in the JSON host repo.
@@ -192,7 +201,7 @@ This uses ESPHome’s OTA support and a simple HTTP endpoint. You do not need to
 
 When you host your own firmware, make sure the corresponding `.md5` file contains **only** the raw MD5 checksum string (no filename, no extra text or spaces), otherwise the integrity check will fail.
 
-#### 1.4.7 Volume
+#### 1.4.8 Volume
 
 - Open **Volume** from the menu.
 - Use **Next** to step through volume in 10% increments.
@@ -200,15 +209,15 @@ When you host your own firmware, make sure the corresponding `.md5` file contain
 
 The device plays a short tone at the new volume so you can hear the change.
 
-#### 1.4.8 Fajr Volume
+#### 1.4.9 Fajr Volume
 
 Works exactly like **Volume** but sets a separate level that is used only for the Fajr athan and for the audio the advanced `Q` option plays 25 minutes before Fajr. Everything else, including the hourly tick during the night, keeps using the main volume. On the first start after updating to this firmware the Fajr volume starts equal to the main volume.
 
-#### 1.4.9 Clock: 24h / 12h
+#### 1.4.10 Clock: 24h / 12h
 
 This entry shows the current setting. Pressing **Select** flips it and stays in the menu. In 12-hour mode the screen shows times like `5:04` with a small `PM` right after the digits, and the web page shows `5:04 PM`. This changes the display only; the stored prayer times, the schedule and the tick window logic are untouched.
 
-#### 1.4.10 Lock Buttons
+#### 1.4.11 Lock Buttons
 
 Pressing **Select** here locks the two physical buttons and returns to the clock; a small padlock appears at the bottom right of the screen. While locked, a button press does one thing only: it silences whatever is playing (athan, preview or tick). The menu cannot be opened and the relay cannot be toggled from the buttons. The lock survives power cycles.
 
@@ -217,7 +226,7 @@ To unlock:
 - On the web page (section 1.6), switch **Buttons Locked** off, or
 - Unplug the power, then plug it back in while holding **one** of the two buttons (either one). The LED blinks three times quickly to confirm. Holding **both** buttons at power-up is still the Wi‑Fi reset described in 1.1.
 
-#### 1.4.11 Info
+#### 1.4.12 Info
 
 Shows the firmware version, the device’s IP address on your Wi‑Fi and its `athan.local` name. Press **Select** to go back. Use it when `http://athan.local` does not open in your browser: type the IP address instead (see section 1.6).
 
@@ -243,7 +252,7 @@ The device runs ESPHome’s built‑in web page. Open `http://athan.local` (or `
 | Group | Controls |
 |---|---|
 | Now | **Stop Audio** (stops the athan, a preview or a tick), **Athan Playing**, **Next Prayer** with countdown, **Today's Times**, **Buttons Locked** switch, **12-hour Clock** switch |
-| Athan | **Athan Audio** (choose 1–10, plays a 20 s preview), **Preview Fajr Version**, **Hourly Tick** (None, 1–10), **Tick Window Start** and **End** sliders (0–23) with a **Tick Window** summary, **Volume** slider, **Fajr Volume** slider |
+| Athan | **Athan Audio** (regular recording 1–10, 20 s preview), **Fajr Athan Audio** (Fajr recording 1–10, 20 s preview at the Fajr volume), **Hourly Tick** (None, 1–10), **Tick Window Start** and **End** sliders (0–23) with a **Tick Window** summary, **Volume** slider, **Fajr Volume** slider |
 | Athan On/Off per Prayer | one switch each for Fajr, Dhuhr, Asr, Maghrib and Isha |
 | Location | **Location** (same 15 keys as the menu; changing it fetches the timezone and today’s times), **Refresh Prayer Times** |
 | System | **Check For Update**, **Update Status** (includes the firmware version), **Install Update**, **Restart**, **External Relay**, **IP Address**, **Free Heap**, **Reset Reason** |
@@ -417,7 +426,7 @@ The DFPlayer numbers files by **copy order**, so use `SDCard_files/cpy_script.sh
 | 11–20 | `B1`–`B10` | Hourly tick sounds |
 | 21–24 | `C1`–`C4` | Short UI tones (22 = volume tone, 23 = menu click) |
 | 25–34 | `D1`–`D10` | Audio used by the advanced `Q` feature |
-| 35–44 | `F1`–`F10` | Athan recordings with the **Fajr wording**. `F<k>` is the Fajr version of `A<k>` and is played automatically at Fajr |
+| 35–44 | `F1`–`F10` | Athan recordings with the **Fajr wording**, chosen separately in the **Fajr Athan** menu (`F<k>` is usually the Fajr version of the same reciter as `A<k>`) |
 | 45–48 | `Z_fallback_1`–`4` | Short “please restart” message that plays if the DFPlayer glitches. Must be copied **last** |
 
 If a reciter has no Fajr recording, copy `A<k>` again as `F<k>` so the slot is never empty. All file numbers live in the `substitutions:` block at the top of `athan.yaml`, so a different layout is a one‑place change.

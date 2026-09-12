@@ -96,6 +96,10 @@ esphome:
             id(fajr_volume_level) = id(volume_level);
             ESP_LOGI("audio", "Fajr volume initialised to %d%% (from main volume)", id(fajr_volume_level));
           }
+          if (id(fajr_athan_choice) < 1 || id(fajr_athan_choice) > 10) {
+            id(fajr_athan_choice) = id(athan_file_index) - (${athan_file_first} - 1);
+            ESP_LOGI("audio", "Fajr athan choice initialised to %d (same as the regular athan)", id(fajr_athan_choice));
+          }
       # # # for testing with RPI:
       # - output.turn_off: gpio0_output
       # - delay: 200ms
@@ -233,11 +237,11 @@ binary_sensor:
             // In menu: move forward
             ESP_LOGI("ui","Next pressed (menu) -> forward");
             if (id(ui_mode) == 1) {
-              id(ui_menu_index) = (id(ui_menu_index) + 1) % 13;
+              id(ui_menu_index) = (id(ui_menu_index) + 1) % 14;
               // any navigation breaks consecutive select count for Q
               id(q_select_count) = 0;
               // If navigation lands on the Update item, reset its state
-              if (id(ui_menu_index) == 5) {
+              if (id(ui_menu_index) == 6) {
                 id(update_check_state) = 0;
               }
               // play navigation click only in main menu (not in Athan/Hourly Tick preview menus)
@@ -278,6 +282,13 @@ binary_sensor:
               id(mute_index) = (id(mute_index) + 1) % 6;
             } else if (id(ui_mode) == 7) {
               // Info screen: nothing to cycle
+            } else if (id(ui_mode) == 8) {
+              // Fajr Athan submenu: next Fajr recording, previewed at the Fajr volume
+              id(fajr_athan_index) = (id(fajr_athan_index) + 1) % 10;
+              if (!id(athan_playing)) {
+                id(dfp_pending_file) = ${fajr_file_first} + id(fajr_athan_index);
+                id(dfp_play).execute();
+              }
             } else if (id(ui_mode) == 9) {
               // Fajr Volume submenu: decrement by 10%, wrap 10 -> 100, hear the tone at that level
               int v = id(fajr_volume_level);
@@ -337,7 +348,7 @@ binary_sensor:
             // If in menu, act as select/confirm
             ESP_LOGI("ui","Select pressed in menu index=%d", id(ui_menu_index));
             if (id(ui_mode) == 1) {
-              // main menu: 0=athan,1=athan on/off,2=htick,3=tick window,4=location,5=update,6=volume,7=fajr volume,8=clock,9=lock,10=info,11=cancel,12=Q
+              // main menu: 0=athan,1=fajr athan,2=athan on/off,3=htick,4=tick window,5=location,6=update,7=volume,8=fajr volume,9=clock,10=lock,11=info,12=cancel,13=Q
               if (id(ui_menu_index) == 0) {
                 id(ui_mode) = 2;
                 id(athan_index) = id(athan_file_index) - ${athan_file_first};
@@ -348,6 +359,16 @@ binary_sensor:
                   id(dfp_play).execute();
                 }
               } else if (id(ui_menu_index) == 1) {
+                id(ui_mode) = 8; // Fajr Athan submenu (previews at the Fajr volume)
+                id(fajr_athan_index) = id(fajr_athan_choice) - 1;
+                if (id(fajr_athan_index) < 0 || id(fajr_athan_index) > 9) id(fajr_athan_index) = 0;
+                ESP_LOGI("ui","Entered Fajr Athan submenu (index=%d)", id(fajr_athan_index));
+                if (!id(athan_playing)) {
+                  id(apply_fajr_volume).execute();
+                  id(dfp_pending_file) = ${fajr_file_first} + id(fajr_athan_index);
+                  id(dfp_play).execute();
+                }
+              } else if (id(ui_menu_index) == 2) {
                 id(ui_mode) = 6; // Athan On/Off submenu
                 id(mute_index) = 0;
                 ESP_LOGI("ui","Entered Athan On/Off submenu");
@@ -355,7 +376,7 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 2) {
+              } else if (id(ui_menu_index) == 3) {
                 id(ui_mode) = 3;
                 if (id(htick_file_index) == 0) id(htick_index) = 0; else id(htick_index) = id(htick_file_index) - (${htick_file_first} - 1);
                 ESP_LOGI("ui","Entered Hourly Tick submenu (index=%d)", id(htick_index));
@@ -363,7 +384,7 @@ binary_sensor:
                   id(dfp_pending_file) = (${htick_file_first} - 1) + id(htick_index);
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 3) {
+              } else if (id(ui_menu_index) == 4) {
                 id(ui_mode) = 10; // Tick Window submenu
                 id(tickwin_index) = 0;
                 ESP_LOGI("ui","Entered Tick Window submenu");
@@ -371,7 +392,7 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 4) {
+              } else if (id(ui_menu_index) == 5) {
                 id(ui_mode) = 4; // location menu
                 // Initialize preview index from the persisted selection so the
                 // menu opens at the last saved location. `location_index` is
@@ -380,7 +401,7 @@ binary_sensor:
                 ESP_LOGI("ui","Entered Location submenu (preview_index=%d)", id(location_index));
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
-              } else if (id(ui_menu_index) == 5) {
+              } else if (id(ui_menu_index) == 6) {
                 // Update: first press checks remote latest.json, second press confirms update
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
@@ -398,7 +419,7 @@ binary_sensor:
                   id(ui_mode) = 1; // stay in menu
                   ESP_LOGI("update", "Checking remote for latest version...");
                 }
-              } else if (id(ui_menu_index) == 6) {
+              } else if (id(ui_menu_index) == 7) {
                 // Enter volume submenu
                 id(ui_mode) = 5;
                 ESP_LOGI("ui", "Entered Volume submenu (level=%d%%)", id(volume_level));
@@ -406,7 +427,7 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_volume_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 7) {
+              } else if (id(ui_menu_index) == 8) {
                 // Enter Fajr Volume submenu (DFPlayer temporarily at the Fajr level so the tone previews it)
                 id(ui_mode) = 9;
                 ESP_LOGI("ui", "Entered Fajr Volume submenu (level=%d%%)", id(fajr_volume_level));
@@ -415,7 +436,7 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_volume_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 8) {
+              } else if (id(ui_menu_index) == 9) {
                 // Clock 24h/12h: toggles in place, stays in the menu
                 id(clock_12h) = !id(clock_12h);
                 ESP_LOGI("ui","Clock display -> %s", id(clock_12h) ? "12h" : "24h");
@@ -423,7 +444,7 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 9) {
+              } else if (id(ui_menu_index) == 10) {
                 // Lock Buttons: lock and go home. Unlock from the web page or by powering up holding one button.
                 id(buttons_locked) = true;
                 id(ui_mode) = 0;
@@ -432,20 +453,20 @@ binary_sensor:
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 10) {
+              } else if (id(ui_menu_index) == 11) {
                 id(ui_mode) = 7; // Info screen
                 ESP_LOGI("ui","Entered Info screen");
                 if (!id(athan_playing)) {
                   id(dfp_pending_file) = ${tone_click_file};
                   id(dfp_play).execute();
                 }
-              } else if (id(ui_menu_index) == 11) {
+              } else if (id(ui_menu_index) == 12) {
                 // Cancel
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
                 id(ui_mode) = 0;
                 ESP_LOGI("ui","Menu cancelled");
-              } else if (id(ui_menu_index) == 12) {
+              } else if (id(ui_menu_index) == 13) {
                 // Q toggle item: enabling requires 10 consecutive select presses
                 id(dfp_pending_file) = ${tone_click_file};
                 id(dfp_play).execute();
@@ -521,6 +542,15 @@ binary_sensor:
                 id(dfp_play).execute();
               }
               id(ui_mode) = 0;
+            } else if (id(ui_mode) == 8) {
+              // select Fajr athan, put the DFPlayer back to the main volume
+              id(fajr_athan_choice) = 1 + id(fajr_athan_index);
+              id(dfp).stop();
+              id(apply_volume).execute();
+              id(dfp_pending_file) = ${tone_click_file};
+              id(dfp_play).execute();
+              id(ui_mode) = 0;
+              ESP_LOGI("ui","Fajr athan %d selected", id(fajr_athan_choice));
             } else if (id(ui_mode) == 9) {
               // confirm Fajr volume, put the DFPlayer back to the main volume
               ESP_LOGI("ui", "Fajr volume selected: %d%%", id(fajr_volume_level));
@@ -738,6 +768,26 @@ select:
       sorting_group_id: grp_athan
       sorting_weight: 1
   - platform: template
+    name: "Fajr Athan Audio"
+    id: web_fajr_athan_select
+    web_server:
+      sorting_group_id: grp_athan
+      sorting_weight: 1.5
+    icon: "mdi:weather-sunset-up"
+    options: ["Fajr Athan 1", "Fajr Athan 2", "Fajr Athan 3", "Fajr Athan 4", "Fajr Athan 5", "Fajr Athan 6", "Fajr Athan 7", "Fajr Athan 8", "Fajr Athan 9", "Fajr Athan 10"]
+    set_action:
+      - lambda: |-
+          auto idx = id(web_fajr_athan_select).index_of(x);
+          if (!idx.has_value()) return;
+          id(fajr_athan_choice) = 1 + (int) idx.value();
+          id(web_fajr_athan_select).publish_state(x);
+          ESP_LOGI("web", "Fajr athan choice %d selected", id(fajr_athan_choice));
+          if (!id(athan_playing)) {
+            id(apply_fajr_volume).execute();
+            id(dfp_pending_file) = (${fajr_file_first} - 1) + id(fajr_athan_choice);
+            id(web_preview).execute();
+          }
+  - platform: template
     name: "Hourly Tick"
     id: web_htick_select
     icon: "mdi:bell-outline"
@@ -886,19 +936,6 @@ button:
     web_server:
       sorting_group_id: grp_now
       sorting_weight: 1
-  - platform: template
-    name: "Preview Fajr Version"
-    id: web_preview_fajr
-    icon: "mdi:weather-sunset-up"
-    on_press:
-      - lambda: |-
-          if (id(athan_playing)) return;
-          int choice = id(athan_file_index) - (${athan_file_first} - 1);
-          id(dfp_pending_file) = (${fajr_file_first} - 1) + choice;
-          id(web_preview).execute();
-    web_server:
-      sorting_group_id: grp_athan
-      sorting_weight: 2
   - platform: template
     name: "Refresh Prayer Times"
     id: web_refresh_times
@@ -1155,6 +1192,17 @@ globals:
     initial_value: "-1"
     restore_value: true
 
+  # Which of the ten Fajr-wording recordings (F1..F10) plays at Fajr. -1 = not set yet: copied from
+  # the regular athan choice on the first boot after the update, then independent.
+  - id: fajr_athan_choice
+    type: int
+    initial_value: "-1"
+    restore_value: true
+  - id: fajr_athan_index
+    type: int
+    initial_value: "0"
+    restore_value: false
+
   # Hourly tick plays only when the hour is inside [start, end). start == end means all day (default).
   - id: htick_start_hour
     type: int
@@ -1341,7 +1389,7 @@ script:
             ESP_LOGI("audio", "Athan silenced");
           }
           id(athan_playing) = false;
-          if (id(ui_mode) != 9) id(apply_volume).execute();
+          if (id(ui_mode) != 8 && id(ui_mode) != 9) id(apply_volume).execute();
           id(update_display).execute();
 
   # Map volume_level (0-100 %) to the DFPlayer range (0-30) and apply it. Used at boot, by the Volume menu and by the web slider.
@@ -1404,6 +1452,7 @@ script:
                 if (!id(athan_playing)) {
                   id(dfp).stop();
                   id(dfp_play).stop();
+                  if (id(ui_mode) != 8 && id(ui_mode) != 9) id(apply_volume).execute();   // a Fajr preview ran at the Fajr volume
                   ESP_LOGI("web", "Preview finished");
                 }
 
@@ -1425,11 +1474,13 @@ script:
           else:
             - script.execute: apply_volume
       - lambda: |-
-          int choice = id(athan_file_index) - (${athan_file_first} - 1);   // 1..10
+          int choice = id(athan_file_index) - (${athan_file_first} - 1);   // regular choice 1..10
+          int fajr_choice = id(fajr_athan_choice);                            // Fajr choice 1..10, its own setting
+          if (fajr_choice < 1 || fajr_choice > 10) fajr_choice = choice;
           int f = (id(current_athan_prayer_index) == 0)
-                    ? (${fajr_file_first} - 1) + choice     // Fajr wording
-                    : (${athan_file_first} - 1) + choice;   // regular wording
-          ESP_LOGI("athan", "Playing athan choice %d as file %d (prayer index %d)", choice, f, id(current_athan_prayer_index));
+                    ? (${fajr_file_first} - 1) + fajr_choice   // Fajr wording (F<fajr_choice>)
+                    : (${athan_file_first} - 1) + choice;      // regular wording (A<choice>)
+          ESP_LOGI("athan", "Playing file %d (prayer index %d, regular choice %d, fajr choice %d)", f, id(current_athan_prayer_index), choice, fajr_choice);
           id(dfp).play_file(f);
       - light.turn_on: builtin_led
       - delay: 5min
@@ -1957,6 +2008,11 @@ script:
           // Athan audio choice
           snprintf_P(buf, sizeof(buf), PSTR("Athan %d"), id(athan_file_index) - (${athan_file_first} - 1));
           if (id(web_athan_select).state != buf) id(web_athan_select).publish_state(buf);
+          // Fajr athan choice
+          if (id(fajr_athan_choice) >= 1 && id(fajr_athan_choice) <= 10) {
+            snprintf_P(buf, sizeof(buf), PSTR("Fajr Athan %d"), id(fajr_athan_choice));
+            if (id(web_fajr_athan_select).state != buf) id(web_fajr_athan_select).publish_state(buf);
+          }
           // Hourly tick choice
           if (id(htick_file_index) == 0) snprintf_P(buf, sizeof(buf), PSTR("None"));
           else snprintf_P(buf, sizeof(buf), PSTR("Tick %d"), id(htick_file_index) - (${htick_file_first} - 1));
@@ -2062,7 +2118,7 @@ script:
               unsigned long diff = millis() - last;
               if (diff >= 60000) {
                 ESP_LOGI("ui", "Menu timed out after %lu ms, returning to normal", diff);
-                if (id(ui_mode) == 9) id(apply_volume).execute();
+                if (id(ui_mode) == 8 || id(ui_mode) == 9) id(apply_volume).execute();
                 id(ui_mode) = 0;
                 id(dfp).stop();
                 id(dfp_play).stop();
@@ -2142,18 +2198,18 @@ script:
           if (id(ui_mode) != 0) {
             if (id(ui_mode) == 1) {
               // Main menu: first line fixed, second line shows current item
-              static const char* menu_items[13] = {"Athan","Athan On/Off","Hourly Tick","Tick Window","Location","Update","Volume","Fajr Volume","Clock","Lock Buttons","Info","Cancel","Q"};
+              static const char* menu_items[14] = {"Athan","Fajr Athan","Athan On/Off","Hourly Tick","Tick Window","Location","Update","Volume","Fajr Volume","Clock","Lock Buttons","Info","Cancel","Q"};
               id(oled).print(0, 0, id(font1), "Menu:");
-              if (id(ui_menu_index) == 12) {
+              if (id(ui_menu_index) == 13) {
                 snprintf(line2, sizeof(line2), "Q: %s", (id(q_flag) ? "ON" : "OFF"));
-              } else if (id(ui_menu_index) == 8) {
+              } else if (id(ui_menu_index) == 9) {
                 snprintf(line2, sizeof(line2), "Clock: %s", (id(clock_12h) ? "12h" : "24h"));
               } else {
                 snprintf(line2, sizeof(line2), "%s", menu_items[id(ui_menu_index)]);
               }
               id(oled).print(0, 22, id(font1), line2);
               // When Update item selected, show version info on third row
-              if (id(ui_menu_index) == 5) {
+              if (id(ui_menu_index) == 6) {
                 if (id(update_check_state) == 0) {
                   // Not checked yet: show current version only
                   snprintf(line3, sizeof(line3), "V%d", ${current_version});
@@ -2202,6 +2258,13 @@ script:
               draw_speaker(76, 2);
               snprintf(line2, sizeof(line2), "%d%%", id(volume_level));
               id(oled).print(0, 22, id(font1), line2);
+            } else if (id(ui_mode) == 8) {
+              // Fajr Athan submenu: which Fajr-wording recording (F1..F10) plays at Fajr
+              id(oled).print(0, 0, id(font1), "Fajr Athan:");
+              snprintf(line2, sizeof(line2), "%d / 10", id(fajr_athan_index) + 1);
+              snprintf(line3, sizeof(line3), "File: %d", ${fajr_file_first} + id(fajr_athan_index));
+              id(oled).print(0, 22, id(font1), line2);
+              id(oled).print(0, 44, id(font1), line3);
             } else if (id(ui_mode) == 9) {
               // Fajr Volume submenu (used for the Fajr athan and the Quyam audio). The header is too wide
               // for the icon (108 + 25 px > 128), so the speaker sits after the percentage on line 2.

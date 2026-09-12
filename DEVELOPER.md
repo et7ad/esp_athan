@@ -24,7 +24,8 @@ At boot, the firmware restores persisted settings (location, volume, chosen Atha
 Some of the key globals in `athan.yaml`:
 
 - `volume_level` (int, persisted) – 0–100% volume, mapped to DFPlayer’s 0–30 range on boot and whenever it changes.
-- `athan_file_index` (int, persisted) – Athan choice `k` = 1–10. The regular recording is file `athan_file_first - 1 + k`, the Fajr-wording recording is file `fajr_file_first - 1 + k` (see the `substitutions:` block).
+- `athan_file_index` (int, persisted) – regular athan choice `k` = 1–10, file `athan_file_first - 1 + k`.
+- `fajr_athan_choice` (int, persisted) – Fajr athan choice 1–10, file `fajr_file_first - 1 + choice`; `-1` until copied from the regular choice on the first boot after the update. `fajr_athan_index` is its submenu cursor.
 - `htick_file_index` (int, persisted) – DFPlayer file number to play at the top of each hour (0 = disabled).
 - `athan_enabled[7]` (bool array, persisted, all `true`) – per-prayer athan ON/OFF, indexed like `prayer_hours` (0 Fajr, 3 Dhuhr, 4 Asr, 5 Maghrib, 6 Isha; 1 and 2 unused).
 - `mute_index` (int) – cursor inside the Athan On/Off submenu (0–4 prayers, 5 = Done).
@@ -79,7 +80,7 @@ Several other globals are used only for internal bookkeeping or features that ar
 #### `make_athan`
 
 - Sets `athan_playing = true` and stops any web preview.
-- Plays the regular recording for the current choice, or the Fajr-wording recording (`fajr_file_first - 1 + k`) when `current_athan_prayer_index == 0`. The tick sets that index *before* executing the script.
+- Plays the regular recording (`A<athan_file_index>`) or, when `current_athan_prayer_index == 0`, the separately chosen Fajr recording (`F<fajr_athan_choice>`, file `fajr_file_first - 1 + choice`). The tick sets that index *before* executing the script.
 - Turns the built‑in LED on for 5 minutes, then off, and marks `athan_playing = false` again.
 
 #### Shared audio scripts
@@ -88,7 +89,7 @@ Several other globals are used only for internal bookkeeping or features that ar
 - `apply_volume` – clamps `volume_level` and maps 0–100 % to the DFPlayer's 0–30. Used at boot, by the Volume menu and by the web slider.
 - `apply_fajr_volume` – same mapping for `fajr_volume_level`. `make_athan` applies it before a Fajr athan (main volume for every other prayer) and `run_quyam` before the Quyam audio; both restore the main volume when they finish, and `silence_audio` restores it as well (except while the Fajr Volume submenu is open).
 - `fajr_volume_feedback` – web slider feedback: tone at the Fajr level, then back to the main volume after 1.5 s.
-- `web_preview` – plays `dfp_pending_file` for 20 s and then stops (unless a real athan started meanwhile). Used by the web selects and the Preview Fajr button.
+- `web_preview` – plays `dfp_pending_file` for 20 s and then stops (unless a real athan started meanwhile). Used by the web selects (Athan Audio, Fajr Athan Audio, Hourly Tick); restores the main volume when it ends.
 - `sync_web_state` – publishes the selects, the volume number and the text sensors from the globals, only when a value changed. Runs from its own `interval: 1s` entry (not from inside `update_display`), so the publish → API/web callbacks always start from the shallow main-loop stack; the ESP8266 loop stack is only ~4 KB and `update_display` is sometimes reached from deep inside HTTP callbacks. Its format strings use `PSTR`/`snprintf_P` so they live in flash.
 
 #### Per‑second tick (`interval: 1s`)
@@ -122,7 +123,7 @@ Rough behaviour:
   - Next: acts like a “silence” button if Athan is playing, otherwise a no‑op except for a display refresh.
 
 - **Main menu mode** (`ui_mode == 1`):
-  - Next: advances `ui_menu_index` (0–8: Athan, Athan On/Off, Hourly Tick, Location, Update, Volume, Info, Cancel, Q) and updates the OLED. Menu indices are not persisted, so the order can change between versions.
+  - Next: advances `ui_menu_index` (0–13: Athan, Fajr Athan, Athan On/Off, Hourly Tick, Tick Window, Location, Update, Volume, Fajr Volume, Clock, Lock Buttons, Info, Cancel, Q) and updates the OLED. Menu indices are not persisted, so the order can change between versions.
   - Select: dispatches based on the current index to enter the relevant submenu or perform actions such as starting an update check.
 
 - **Submenus** (`ui_mode`):
@@ -130,6 +131,7 @@ Rough behaviour:
   | `ui_mode` | Screen | Next | Select |
   |---|---|---|---|
   | 2 | Athan audio | next recording (preview) | store `athan_file_index`, exit |
+  | 8 | Fajr Athan | next F recording (preview at the Fajr volume) | store `fajr_athan_choice`, restore main volume, exit |
   | 3 | Hourly tick | next tick (preview) | store `htick_file_index`, exit |
   | 4 | Location | next key (preview) | fetch TZ, store, exit |
   | 5 | Volume | −10 % (wraps) | exit |
@@ -204,8 +206,8 @@ The DFPlayer itself expects files numbered according to its own scheme (typicall
 
 `web_server:` runs version 3 with `log: false` (set it to `true` to stream the log to the page) and five sorting groups; every entity carries a `web_server: {sorting_group_id, sorting_weight}` block. Accepted downside: the version 3 OTA upload input carries `accept="application/octet-stream"`, which greys out `.bin` files in Safari on macOS (version 2's form has no filter but shows a flat alphabetical list; the owner chose the grouped layout). Upload from Chrome or `curl -F "update=@firmware.bin" http://athan.local/update`. The firmware is deliberately a single yaml file, so no custom page script is shipped. Every entity is a plain ESPHome template entity that reuses the scripts above:
 
-- `button`: `web_stop` → `silence_audio`; `web_preview_fajr` → `web_preview` with the Fajr file; `web_refresh_times`; `web_check_update` / `web_install_update` (same state machine as the Update menu item, `update_check_state` 3 → 1/2 → 4); `web_restart`.
-- `select`: `web_athan_select` (Athan 1–10), `web_htick_select` (None, Tick 1–10), `web_location_select` (the 15 keys). Their `set_action` writes the same globals the menu writes, then `publish_state`. They have no `lambda`; `sync_web_state` pushes device-side changes.
+- `button`: `web_stop` → `silence_audio`; `web_refresh_times`; `web_check_update` / `web_install_update` (same state machine as the Update menu item, `update_check_state` 3 → 1/2 → 4); `web_restart`.
+- `select`: `web_athan_select` (Athan 1–10), `web_fajr_athan_select` (Fajr Athan 1–10, previews at the Fajr volume), `web_htick_select` (None, Tick 1–10), `web_location_select` (the 15 keys). Their `set_action` writes the same globals the menu writes, then `publish_state`. They have no `lambda`; `sync_web_state` pushes device-side changes.
 - `number`: `web_volume` (0–100, step 10) → `apply_volume`; `web_fajr_volume` (0–100, step 10) → `fajr_volume_feedback`; `web_htick_start` / `web_htick_end` (0–23) write the tick window hours.
 - `switch` (`restore_mode: DISABLED`): `web_buttons_locked`, `web_clock_12h` mirror their globals via `lambda`.
 - `switch`: `web_athan_fajr/dhuhr/asr/maghrib/isha` use a `lambda` on the global (evaluated every loop, published on change) plus turn on/off actions, and **`restore_mode: DISABLED`**. That last line is load-bearing: with the default restore mode ESPHome calls `turn_off()` inside the switch `setup()` (priority 798), which runs the action before the display (priority 400) has a buffer. The first V6 build crashed on every boot for exactly this reason and also would have muted every prayer at each boot. The `Q` flag is deliberately not exposed as an entity; it stays device-only behind the 10-press guard.
