@@ -36,9 +36,9 @@ Some of the key globals in `athan.yaml`:
 - `tickwin_index` (int) – cursor inside the Tick Window submenu (0 Start, 1 End, 2 Done).
 - `selected_location_index` (int, persisted) – index into the Location select's `options:` list.
 - `selected_location_tz` (string, persisted) – POSIX TZ string (for example `PST8PDT,M3.2.0,M11.1.0`).
-- `prayer_hours[7]` / `prayer_minutes[7]` – daily prayer schedule as parsed from JSON.
+- `prayer_hours[7]` / `prayer_minutes[7]` (`uint8_t`, persisted) – daily prayer schedule as parsed from JSON; kept in flash so a same-day reboot without Wi-Fi still calls the athan. Bytes, because on the ESP8266 each persisted object costs its size in 4-byte words plus one checksum word (an `int[7]` would cost 8 words, `uint8_t[7]` costs 3; a lone scalar costs 2 whatever its type).
 - `prayer_times_day` / `prayer_times_year` – day‑of‑year and year for which the above arrays are valid.
-- `next_prayer_index`, `next_prayer_hour`, `next_prayer_minute` – computed by `compute_next_prayer` and used by the display and tick logic.
+- `next_prayer_index`, `next_prayer_hour`, `next_prayer_minute` – computed by `compute_coming_prayer` at boot and at every prayer; not persisted (nor are `quyam_next_*`).
 - `athan_playing` – tracks whether DFPlayer is currently playing the Athan.
 - `ui_mode`, `ui_menu_index`, `athan_index`, `htick_index`, `location_index` – all used to drive the small menu system.
 

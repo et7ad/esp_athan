@@ -59,15 +59,15 @@ esphome:
             - lambda: |-
                 wifi::global_wifi_component->clear_sta();
                 wifi::global_wifi_component->save_wifi_sta("doesntexist", "passwordfornonetwork");
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
             - delay: 1s
-            - light.turn_on: builtin_led
+            - output.turn_on: led_output
             - delay: .5s
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
             - delay: 1s
-            - light.turn_on: builtin_led
+            - output.turn_on: led_output
             - delay: .5s
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
             - logger.log: "resetting"
             - switch.turn_on: _restart
       # Hardware unlock for the button lock: power up holding exactly ONE of the two buttons.
@@ -79,17 +79,17 @@ esphome:
             - lambda: |-
                 id(buttons_locked) = false;
                 ESP_LOGI("ui", "Buttons unlocked (one button held at power-up)");
-            - light.turn_on: builtin_led
+            - output.turn_on: led_output
             - delay: 150ms
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
             - delay: 150ms
-            - light.turn_on: builtin_led
+            - output.turn_on: led_output
             - delay: 150ms
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
             - delay: 150ms
-            - light.turn_on: builtin_led
+            - output.turn_on: led_output
             - delay: 150ms
-            - light.turn_off: builtin_led
+            - output.turn_off: led_output
       - lambda: |-
           // First boot after the update: Fajr volume starts equal to the main volume.
           if (id(fajr_volume_level) < 0) {
@@ -107,13 +107,13 @@ esphome:
       - delay: 2s
       - script.execute: update_display
       - script.execute: apply_volume
-      - light.turn_on: builtin_led
+      - output.turn_on: led_output
       - delay: 500ms
-      - light.turn_off: builtin_led
+      - output.turn_off: led_output
       - delay: 500ms
-      - light.turn_on: builtin_led
+      - output.turn_on: led_output
       - delay: 500ms
-      - light.turn_off: builtin_led
+      - output.turn_off: led_output
 
 
 esp8266:
@@ -124,6 +124,14 @@ logger:
   level: DEBUG
   baud_rate: 0
 
+# Home Assistant native API. Through it Home Assistant gets every entity the web page has (athan and
+# tick selects, volumes, per-prayer switches, tick window, lock, 12h clock, stop/refresh/update/restart
+# buttons, next-prayer and status sensors, relay), usable in dashboards and automations.
+# OPTIONAL: to free 4-6 KB of RAM and 9 flash-preference words, comment out these four lines. Nothing
+# else in this file depends on them: the web page, the menu, OTA (menu, web page and ESPHome dashboard
+# "Install") and the athan all keep working. What you lose: Home Assistant entirely,
+# scripts/relay_control_native.py, and "Logs" in the ESPHome dashboard (network logs go through the
+# API; the web page's own log stream is separate, see `web_server: log:`).
 api:
   reboot_timeout: 0s
   encryption:
@@ -587,14 +595,6 @@ binary_sensor:
       sorting_group_id: grp_now
       sorting_weight: 2
 
-light:
-  - platform: binary
-    id: builtin_led
-    name: "Built-in LED"
-    output: led_output
-    restore_mode: ALWAYS_OFF
-    internal: true
-
 # External relay switch (exposed to Home Assistant and the web page)
 switch:
   - platform: gpio
@@ -1047,6 +1047,8 @@ text_sensor:
         sorting_group_id: grp_system
         sorting_weight: 7
 
+# Built-in LED. Deliberately a plain output, not a `light:`: a light component saves a 42-byte colour
+# record to the flash preference store (12 of its 128 words) even for an on/off LED.
 output:
   - platform: gpio
     id: led_output
@@ -1264,6 +1266,7 @@ globals:
     type: std::string
     initial_value: '"America/Los_Angeles"'
     restore_value: true
+    max_restore_data_length: 47   # POSIX TZ strings are 22-35 chars; 48 bytes = 13 flash words (63 would be 17)
 
   - id: time_zone_changed_at_boot
     type: bool
@@ -1281,11 +1284,11 @@ globals:
     restore_value: false
 
   - id: prayer_hours
-    type: int[7]
+    type: uint8_t[7]        # 0..23; uint8_t[7] costs 3 flash words, int[7] would cost 8
     initial_value: "{5, 6, 7, 12, 15, 17, 18}"   # fajr, shrouk, doha, dhuhr, asr, maghrib, isha
     restore_value: true
   - id: prayer_minutes
-    type: int[7]
+    type: uint8_t[7]        # 0..59
     initial_value: "{42, 13, 39, 15, 47, 12, 28}"
     restore_value: true
   - id: prayer_times_day
@@ -1300,24 +1303,24 @@ globals:
   - id: next_prayer_index
     type: int
     initial_value: "0"
-    restore_value: true
+    restore_value: false   # recomputed from the schedule at every boot; not worth 2 flash words
     
   - id: next_prayer_hour
     type: int
     initial_value: "0"
-    restore_value: true
+    restore_value: false   # recomputed from the schedule at every boot; not worth 2 flash words
   - id: next_prayer_minute
     type: int
     initial_value: "0"
-    restore_value: true
+    restore_value: false   # recomputed from the schedule at every boot; not worth 2 flash words
   - id: quyam_next_hour
     type: int
     initial_value: "0"
-    restore_value: true
+    restore_value: false   # recomputed from the schedule at every boot; not worth 2 flash words
   - id: quyam_next_minute
     type: int
     initial_value: "0"
-    restore_value: true
+    restore_value: false   # recomputed from the schedule at every boot; not worth 2 flash words
   - id: quyam_triggered
     type: bool
     initial_value: "false"
@@ -1482,9 +1485,9 @@ script:
                     : (${athan_file_first} - 1) + choice;      // regular wording (A<choice>)
           ESP_LOGI("athan", "Playing file %d (prayer index %d, regular choice %d, fajr choice %d)", f, id(current_athan_prayer_index), choice, fajr_choice);
           id(dfp).play_file(f);
-      - light.turn_on: builtin_led
+      - output.turn_on: led_output
       - delay: 5min
-      - light.turn_off: builtin_led
+      - output.turn_off: led_output
       - lambda: |-
           id(athan_playing) = false;
       - script.execute: apply_volume
