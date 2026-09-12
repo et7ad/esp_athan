@@ -104,9 +104,16 @@ esphome:
       # - output.turn_off: gpio0_output
       # - delay: 200ms
       # - output.turn_on: gpio0_output 
-      - delay: 2s
+      - delay: 3s                # cheap DFPlayer clones need 2-3 s after power before they listen
       - script.execute: update_display
+      # The ESP8266 boot ROM prints its boot log on GPIO1 (the DFPlayer's RX line) at every reset; clones
+      # read that as commands and may start playing. Two stops end that before the volume is set.
+      - lambda: 'id(dfp).stop();'
+      - delay: 500ms
+      - lambda: 'id(dfp).stop();'
+      - delay: 300ms
       - script.execute: apply_volume
+      - delay: 100ms
       - output.turn_on: led_output
       - delay: 500ms
       - output.turn_off: led_output
@@ -1440,6 +1447,25 @@ script:
                 then:
                   - script.execute: apply_volume
 
+  # DFPlayer recovery over serial: reset command, wait for the module to come back, stop, main volume.
+  # Not wired to anything yet (no web button, no menu item): the clones only recover from a power
+  # cycle, so replugging is the practical fix today. Kept for the next PCB, where the module's BUSY pin
+  # reaches a GPIO (see todo.md): then a watchdog can call this when BUSY contradicts what was requested.
+  - id: dfp_recover
+    mode: single
+    then:
+      - lambda: |-
+          id(web_preview).stop();
+          id(dfp_play).stop();
+          id(athan_playing) = false;
+          ESP_LOGW("audio", "DFPlayer reset requested");
+          id(dfp).reset();
+      - delay: 2500ms
+      - lambda: 'id(dfp).stop();'
+      - delay: 300ms
+      - script.execute: apply_volume
+      - lambda: 'id(update_display).execute();'
+
   # Web-page preview: play dfp_pending_file for 20 s, then stop (unless a real athan started meanwhile).
   - id: web_preview
     mode: restart
@@ -1468,7 +1494,7 @@ script:
           id(web_preview).stop();
           id(dfp).stop();
           id(dfp_play).stop();
-      - delay: 250ms
+      - delay: 150ms
       - if:
           condition:
             lambda: 'return id(current_athan_prayer_index) == 0;'
@@ -1476,6 +1502,7 @@ script:
             - script.execute: apply_fajr_volume
           else:
             - script.execute: apply_volume
+      - delay: 100ms              # clones need a gap between the volume command and play (once per athan, inaudible)
       - lambda: |-
           int choice = id(athan_file_index) - (${athan_file_first} - 1);   // regular choice 1..10
           int fajr_choice = id(fajr_athan_choice);                            // Fajr choice 1..10, its own setting

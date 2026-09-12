@@ -89,6 +89,11 @@ Several other globals are used only for internal bookkeeping or features that ar
 - `apply_volume` – clamps `volume_level` and maps 0–100 % to the DFPlayer's 0–30. Used at boot, by the Volume menu and by the web slider.
 - `apply_fajr_volume` – same mapping for `fajr_volume_level`. `make_athan` applies it before a Fajr athan (main volume for every other prayer) and `run_quyam` before the Quyam audio; both restore the main volume when they finish, and `silence_audio` restores it as well (except while the Fajr Volume submenu is open).
 - `fajr_volume_feedback` – web slider feedback: tone at the Fajr level, then back to the main volume after 1.5 s.
+- `dfp_recover` – DFPlayer reset command, 2.5 s wait, stop, main volume. Not called from anywhere yet; kept for a BUSY-pin watchdog on the next PCB (`todo.md`).
+
+#### DFPlayer clone mitigations
+
+The cheap MH2024K/GD3200B clones read the ESP8266 boot ROM's log (GPIO1 = their RX) as commands, need ~2-3 s after power before they listen, and mis-handle commands that arrive back to back. Firmware side: boot waits 3 s, sends `stop` twice, then the volume; `make_athan` waits 50 ms between the volume command and `play_file`; `dfp_play` debounces rapid requests (20 ms). The observed failure on the owner's hardware is triggered by button presses and only clears with a power cycle, which points at the hardware items in `todo.md` (BUSY pin first).
 - `web_preview` – plays `dfp_pending_file` for 20 s and then stops (unless a real athan started meanwhile). Used by the web selects (Athan Audio, Fajr Athan Audio, Hourly Tick); restores the main volume when it ends.
 - `sync_web_state` – publishes the selects, the volume number and the text sensors from the globals, only when a value changed. Runs from its own `interval: 1s` entry (not from inside `update_display`), so the publish → API/web callbacks always start from the shallow main-loop stack; the ESP8266 loop stack is only ~4 KB and `update_display` is sometimes reached from deep inside HTTP callbacks. Its format strings use `PSTR`/`snprintf_P` so they live in flash.
 

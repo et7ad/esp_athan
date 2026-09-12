@@ -2,11 +2,19 @@
 
 ## Next Versionxw
 
-### DFPlayer stuck recovery via hardware power cycling
+### DFPlayer: hardware changes for the next PCB
 
-- **Hardware change**: Wire DFPlayer VCC through an N-channel MOSFET (or NPN transistor) controlled by a free ESP GPIO pin, so the ESP can cut and restore power to the DFPlayer programmatically
-- **Firmware change**: Add a watchdog that monitors playback duration — track when the last play command was sent and what the expected duration is (short UI click vs long athan). If the DFPlayer has been "playing" far longer than expected (e.g. a 1-second click still active after 10 seconds, or an athan still active after 6 minutes), trigger a power cycle: cut VCC via the MOSFET, wait ~500ms, restore VCC, wait ~3s for the clone to reinitialize, then restore volume and clear the athan_playing flag
-- **Why**: Cheap MH2024K DFPlayer clones can lock up with the DAC/amplifier stuck on (LED stays on, no audio). The serial reset command (0x0C) does NOT recover a locked clone — only a full power cycle guarantees recovery
+**IMPORTANT, do first: wire the DFPlayer BUSY pin to a spare ESP GPIO.**
+- BUSY is low while the module plays and high when idle. Today the firmware only knows what it *asked* the module to do; with BUSY it knows what the module is *doing*. That turns every guess into a check: "asked to play but BUSY says idle" (stuck / ignored command → resend or power-cycle), "playing when nothing was requested" (runaway → stop), and it is what a proper playback watchdog needs.
+- GPIO choice: GPIO0 is the practical candidate (BUSY idles high, which is the normal-boot level for GPIO0; it is also the programming pin, so it must be easy to isolate on the header). GPIO15 cannot be used (BUSY high at boot would select the wrong boot mode). GPIO2 drives the LED, GPIO16 the OLED reset.
+
+**Optional: DFPlayer power through an N-channel MOSFET (or NPN) on a spare GPIO.**
+- Lets the firmware do the only thing that reliably recovers a locked clone (LED stuck on, no audio; the serial reset 0x0C does not): cut VCC, wait ~500 ms, restore, wait ~3 s, restore the volume.
+- Bonus: keep the module unpowered for the first ~3 s after the ESP boots so it never sees the ESP8266 boot-ROM log on GPIO1 (its RX line), the classic cause of clones playing on their own after a reset. The firmware already sends stops after boot as a workaround.
+- Firmware side once it exists: a watchdog on expected playback duration (short click vs athan) that power-cycles the module when it is "playing" far longer than it should, or, with BUSY wired, whenever BUSY contradicts the request.
+
+**Optional: DFPlayer RX on GPIO15 instead of GPIO1.**
+- ESP8266 UART0 can be swapped to TX=GPIO15 / RX=GPIO13 in `uart:`; the boot ROM only prints on GPIO1, so the module would never hear it. GPIO13 is the relay today and would have to move.
 
 ## Fallback only: single settings block in flash (do NOT do this unless the preference store runs out)
 
