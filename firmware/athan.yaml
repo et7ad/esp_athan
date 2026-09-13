@@ -3,7 +3,7 @@ substitutions:
 
   # ---------------------------------------------------------------
   # DFPlayer / SD-card file layout. The DFPlayer numbers files by the
-  # order they were copied to the card (see README section 3.2 and
+  # order they were copied to the card (see README section 2.6 and
   # SDCard_files/cpy_script.sh). Change these together with the card.
   # ---------------------------------------------------------------
   athan_file_first: "1"    # A1..A10 -> files 1..10  regular athans   (choice k -> file k)
@@ -146,7 +146,7 @@ api:
 
 # Built-in web page at http://athan.local (or http://<ip>). Everything the two buttons can do is exposed
 # there as entities (see the select:/number:/switch:/button:/text_sensor: blocks below), and the same
-# entities show up in Home Assistant. REST examples: README section 1.6.
+# entities show up in Home Assistant. Owner's guide: README section 1.2; REST examples: README section 4.
 web_server:
   # Version 3 page: grouped sections (see sorting_groups), icons and an uptime line. Known downside, accepted:
   # its firmware-upload form carries accept="application/octet-stream", so Safari on macOS greys out .bin

@@ -166,7 +166,7 @@ Typical steps to add a new mosque:
 1. Create `docs/timezones/<newkey>.json` with a `TZ` string.
 2. Generate `/<newkey>/<year>/<DDD>.json` for every day of the year.
 3. Replace one of the `masjidN` placeholders in the `web_location_select` `options:` with `<newkey>`. Never insert or reorder: the index is persisted on every deployed device.
-4. Update the README table (section 4.4), rebuild and flash.
+4. Update the README mosque table (section 3.3), rebuild and flash.
 
 If you prefer not to fork this repo, you can instead mirror the same JSON layout in your own repo and point the URLs to it, as described in the README.
 
@@ -220,7 +220,7 @@ The DFPlayer itself expects files numbered according to its own scheme (typicall
 
 **Memory budget (ESP8266, 80 KB RAM).** The linker's `RAM:` line at the end of a build is static usage; V6 sits around 40 KB and everything else (Wi‑Fi stack ~10 KB, entities, API connection, web clients, HTTP fetch buffers, 1 KB display buffer) comes out of the remainder as heap. Two things are easy to get wrong: (1) font glyph tables live in DRAM (`.rodata`), ~32 bytes per glyph, so every font lists its `glyphs:` explicitly instead of the ~100-glyph default; (2) string literals in lambdas are DRAM too, so long format strings use `PSTR()` with `snprintf_P`. Watch **Free Heap** on the web page after any change; a value that keeps dropping toward 8 KB precedes crash-reboot loops.
 
-REST endpoints follow ESPHome's scheme, for example `POST /button/stop_audio/press`, `POST /select/location/set?option=woodland`, `POST /number/volume/set?value=40`; see README section 1.6.
+REST endpoints follow ESPHome's scheme, for example `POST /button/stop_audio/press`, `POST /select/location/set?option=woodland`, `POST /number/volume/set?value=40`; see README section 4.
 
 ### Development and testing
 
