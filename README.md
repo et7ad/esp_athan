@@ -8,7 +8,7 @@ A small clock that calls the Athan at the exact times of your local mosque. It s
 
 | You are... | Read | Why |
 |---|---|---|
-| **Someone who was given a device** | **Section 1 only.** | Everything you need to set it up should be in this section. |
+| **Someone who already has a device** | **Section 1 only.** | Everything you need to set it up should be in this section. |
 | Someone who wants to build one | Section 2 | Parts, wiring, PCB, 3D printed case, preparing the memory card. Needs soldering and a bit of patience. |
 | Someone who wants to add a mosque's timetable, or host the data yourself | Section 3 | How the prayer times are stored and served. |
 | Someone who wants to change how the firmware behaves | Section 4 and `DEVELOPER.md` | The code is one ESPHome file; the internals are documented there. |
