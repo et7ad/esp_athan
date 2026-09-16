@@ -190,10 +190,11 @@ If you host your own firmware for the in‑device update, the `.md5` file next t
 
 The DFPlayer does not care about file names; it numbers files by the **order they were copied** to the card. So the card better be written by the script, not by drag and drop.
 
-1. Format the card as FAT (FAT16/FAT32), no folders.
+1. Put the card in the computer (Mac or Linux). Everything on it will be erased, whatever its name or content.
 2. Put the audio files in one folder on your computer, named as in the table below.
-3. Open `scripts/sd_card_cpy_script.sh`, set `SRC` (that folder) and `DEST` (the mounted card, for example `/Volumes/AUDIO`), and run it right after the card mounts, before opening the card in Finder.
-4. Read its last lines: it should report **48 mp3 files** and then eject the card itself. Do not mount it on the Mac again; put it in the DFPlayer and power the clock.
+3. Open `scripts/sd_card_cpy_script.sh` and set `SRC` to that folder. On a Mac also set `DEST` to the mounted card (for example `/Volumes/AUDIO`); on Linux leave `DEST` alone.
+4. Run it in a terminal: `bash scripts/sd_card_cpy_script.sh`. On Linux it lists the removable disks, asks which one is the card, and asks for your password once. Answer `YES` when it asks to erase and format the card. It then copies the files, cleans up, reads the card back the way the DFPlayer reads it, and prints the 48 tracks in the order the module will see them.
+5. The last lines must say **Card is good** and then **Card ejected**. Do not mount the card on the computer again; put it in the DFPlayer and power the clock. If the script says **PROBLEM** instead, run it again and let it format.
 
 | Files | Names | What they are |
 |---|---|---|
@@ -204,9 +205,17 @@ The DFPlayer does not care about file names; it numbers files by the **order the
 | 35–44 | `F1`–`F10` | Athan recordings with the Fajr wording (`F<k>` is usually the same reciter as `A<k>`; if a reciter has no Fajr recording, copy `A<k>` again as `F<k>`) |
 | 45–48 | `Z_fallback_1`–`4` | a short "please restart" message that plays if the DFPlayer counts files wrongly; must be last |
 
-Cards made for firmware V5 or older lack the `F` files and must be redone for V6.
+Cards made for firmware V5 or older lack the `F` files and must be redone for V6. Cards made for V6 before the current script can be missing Fajr athans 7–10 and the fallback message for the DFPlayer (see below) and should be redone with the current script.
 
-Why the script is fussy: on a Mac, copying a file can also create a hidden twin named `._name.mp3`. The DFPlayer counts that twin as a track, and because the card hands a new file the first free slot in its directory, a twin created after your cleanup can land between two real files and shift every number after it. The script copies without those twins, keeps Spotlight and the file‑event logger off the card (two tiny marker files it leaves behind on purpose), repeats its cleanup if macOS re‑creates anything, verifies, and ejects. If you ever see `._` files on the card, format it and run the script again rather than deleting them by hand. The `.fseventsd` and `.Spotlight‑V100` folders macOS sometimes adds are harmless.
+Why the script formats and checks: on a Mac, every file written to a card of this kind gets a hidden twin named `._name.mp3`, which the script has to delete again, and every deleted twin leaves two dead slots in the card's table of contents. With 48 files that table needs 165 slots. A card formatted the usual way (Disk Utility's default for cards up to 8 GB) has room for only 128 slots in the first block of that table, and the DFPlayer never reads past the first block: the Mac shows all 48 files, but for the module Fajr athans 7–10 and the fallback message do not exist. So the script formats the card with large blocks (1024 slots), keeps Spotlight and the file‑event logger off the card (two tiny marker files it leaves behind on purpose), and at the end trusts only what it reads back from the card, not what Finder shows. If you ever see `._` files on the card, run the script again and let it format rather than deleting them by hand. Linux makes no twins, but a card keeps every leftover of its earlier life until it is formatted, so the script erases and checks there too.
+
+To look at a card without changing anything, for example one that plays nothing or the wrong thing for some number, run:
+
+```bash
+INSPECT=yes bash scripts/sd_card_cpy_script.sh
+```
+
+It prints the tracks exactly as the DFPlayer counts them, with a note on every entry that the module cannot reach.
 
 ### 2.7 3D printing
 
