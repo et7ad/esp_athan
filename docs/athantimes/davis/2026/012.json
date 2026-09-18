@@ -4,15 +4,15 @@
   "#": "Monday",
   "day": "12",
   "fajr": "06:06",
-  "fajr_iqa": "06:36",
+  "fajr_iqa": "06:31",
   "sunrise": "07:23",
-  "doha": "07:38",
+  "doha": "07:43",
   "dhuhar": "12:18",
-  "dhuhar_iqa": "12:38",
+  "dhuhar_iqa": "12:28",
   "asr": "02:49",
-  "asr_iqa": "03:09",
+  "asr_iqa": "02:59",
   "maghrib": "05:07",
-  "maghrib_iqa": "05:19",
+  "maghrib_iqa": "05:22",
   "isha": "06:25",
-  "isha_iqa": "07:20"
+  "isha_iqa": "06:40"
 }
