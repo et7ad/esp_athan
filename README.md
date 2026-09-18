@@ -27,6 +27,8 @@ Setting it up is two steps. One, you connect it to your home Wi‑Fi. After that
 4. Pick your home Wi‑Fi (or enter its SSID manually), type its password, save.
 5. The clock restarts, joins your Wi‑Fi, sets its own time from the internet, downloads today's prayer times, and shows the time and the next prayer. From then on it does this by itself every day.
 
+You do this **once**. The clock keeps the Wi‑Fi you gave it, together with all your other settings, in its own memory: unplug it, move it to another socket, leave it off for a month, plug it back in, and it reconnects to the same network by itself. The hotspot only comes back when you want a different network (see below) or when the network it knows is not there.
+
 Two things to know:
 
 - The clock only sees **2.4 GHz** Wi‑Fi networks. Most home routers have one; if yours shows two networks (for example "home" and "home‑5G"), pick the one without "5G".
@@ -51,7 +53,7 @@ The page is organised in groups:
 - **Athan Audio** – which athan-recording is used for Dhuhr, Asr, Maghrib and Isha. Changing it plays a 20‑second preview.
 - **Fajr Athan Audio** – which athan-recording is used for Fajr. Also previews.
 - **Volume** and **Fajr Volume** – the Fajr Athan has its own volume, so it can be gentler at dawn (or more loud if you want to count on it to wake you up 😴).
-- **Hourly Tick** – an optional short sound at the top of every hour, and **Tick Window Start / End** to allow it only between two hours (for example 7 to 22 so it stays quiet at night). Start equal to End means all day. You can completely turn it off by choosing **None** for the sound.
+- **Hourly Tick** – an optional short sound at the top of every hour, and **Tick Window Start / End** to allow it only during part of the day. The tick plays at every full hour from Start up to, but not including, End: with Start 7 and End 22 it ticks at 7:00, 8:00 … 21:00 and stays quiet at night. The window can be any stretch of the day, including one that runs through midnight: set Start *higher* than End (for example Start 22, End 7) and it ticks from 22:00 through the night until 6:00. On the page that simply means the upper slider sits higher than the lower one. Start equal to End means all day. You can completely turn the tick off by choosing **None** for the sound.
 - **Fajr / Dhuhr / Asr / Maghrib / Isha Athan** – five switches to turn the call off for a particular prayer. The clock still shows and counts down to that prayer; it just stays silent. Visual cue: if the Athan is off, the next prayer name on the screen is partially str~~icken~~-thr~~oug~~
 - **12‑hour Clock** – show `5:04 PM` instead of `17:04`.
 - **Buttons Locked** – makes the two front buttons do nothing except silence the sound (I guess mainly for kids?). See 1.3 for how to unlock without the page.
@@ -79,7 +81,7 @@ The menu closes by itself after a minute without presses. Its items, in order:
 | Fajr Athan | choose the recording for Fajr (previews at the Fajr volume) |
 | Athan On/Off | Next moves through Fajr, Dhuhr, Asr, Maghrib, Isha; Select flips one on or off; Select on **Done** leaves |
 | Hourly Tick | choose the hourly sound, or None |
-| Tick Window | Next moves between Start, End and Done; Select on Start or End lets Next change the hour; Select again confirms. The third line always shows how long the window is |
+| Tick Window | Next moves between Start, End and Done; Select on Start or End lets Next change the hour; Select again confirms. The third line always shows how long the window is. Start above End means the window runs through midnight |
 | Location | your mosque |
 | Update | first Select checks for a new firmware, second Select installs it |
 | Volume | Next lowers by 10 % (wraps around to 100 %), a tone plays at the new level, Select keeps |
